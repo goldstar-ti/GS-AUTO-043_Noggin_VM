@@ -98,6 +98,7 @@ class ConfigLoader:
             'database': self.get('postgresql', 'database'),
             'user': self.get('postgresql', 'user'),
             'password': self.get('postgresql', 'password'),
+            'schema': self.get('postgresql', 'schema', fallback='noggin_schema'),
             'minconn': self.getint('postgresql', 'pool_min_connections', fallback=2),
             'maxconn': self.getint('postgresql', 'pool_max_connections', fallback=10)
         }
