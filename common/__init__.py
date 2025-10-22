@@ -3,6 +3,7 @@ from .logger import LoggerManager
 from .database import DatabaseConnectionManager, DatabaseConnectionError
 from .hash_manager import HashManager, HashLookupError
 from .csv_importer import CSVImporter, CSVImportError
+from .rate_limiter import CircuitBreaker, CircuitBreakerError, CircuitState
 
 __all__ = [
     'ConfigLoader',
@@ -13,5 +14,8 @@ __all__ = [
     'HashManager',
     'HashLookupError',
     'CSVImporter',
-    'CSVImportError'
+    'CSVImportError',
+    'CircuitBreaker',
+    'CircuitBreakerError',
+    'CircuitState'
 ]
