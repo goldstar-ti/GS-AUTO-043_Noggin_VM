@@ -67,7 +67,8 @@ class LoggerManager:
         file_level: str = self.config.get('logging', 'file_log_level', fallback='DEBUG')
         
         console_formatter: logging.Formatter = logging.Formatter(
-            fmt='%(asctime)s\t%(levelname)-8s\t%(funcName)-20s\t%(message)s',
+            # fmt='%(asctime)s\t%(levelname)-8s\t%(funcName)-40s\t%(message)s',
+            fmt='%(asctime)s\t%(levelname)-8s%(module)-15s%(funcName)-40s\t%(message)-100s\t[PID:%(process)d Line:%(lineno)d]'
             datefmt='%H:%M:%S'
         )
         console_handler: logging.StreamHandler = logging.StreamHandler(sys.stdout)
@@ -75,7 +76,8 @@ class LoggerManager:
         console_handler.setFormatter(console_formatter)
         
         file_formatter: logging.Formatter = logging.Formatter(
-            fmt='%(asctime)s\t%(levelname)-8s\t%(funcName)-20s\t%(message)s',
+            # fmt='%(asctime)s\t%(levelname)-8s\t%(funcName)-20s\t%(message)s',
+            fmt='%(asctime)s.%(msecs)03d | %(levelname)-8s | %(message)-100s | PID:%(process)-5d | THD:%(thread)d-%(threadName)-15s | Logger:%(name)-30s | Mod:%(module)-20s:%(lineno)-4d | Func:%(funcName)-30s'
             datefmt='%Y-%m-%d %H:%M:%S'
         )
         file_handler: logging.FileHandler = logging.FileHandler(log_file, encoding='utf-8')
