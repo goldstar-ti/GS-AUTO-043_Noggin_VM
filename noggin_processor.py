@@ -934,7 +934,7 @@ def log_shutdown_summary(processed_count: int, total_count: int, start_time_val:
     logger.info("SHUTDOWN SUMMARY")
     logger.info("="*80)
     logger.info(f"Shutdown reason: {reason}")
-    logger.info(f"TIPs processed: {processed_count:,} of {total_count:,} ({completion_percentage:.1f}%)")
+    logger.info(f"TIPs processed:  {processed_count:,} of {total_count:,} ({completion_percentage:.1f}%)")
     logger.info(f"Processing time: {elapsed_time/3600:.1f} hours")
     if processed_count > 0:
         logger.info(f"Average rate: {processed_count/elapsed_time:.2f} TIPs/second")
@@ -1157,5 +1157,7 @@ if __name__ == "__main__":
 
         session_logger.info(f"\nSESSION END: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
         session_logger.info(f"TOTAL EXECUTION TIME: {total_duration:.2f} seconds")
+
+# TODO use dataclasses
 
 
