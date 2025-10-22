@@ -1,7 +1,7 @@
 from __future__ import annotations
 import psycopg2
 from psycopg2 import pool, extras
-from typing import Optional, Any, List, Dict, Tuple, Generator
+from typing import Optional, Any, List, Dict, Tuple, Generator, Sequence
 import logging
 import atexit
 from contextlib import contextmanager
@@ -193,7 +193,8 @@ class DatabaseConnectionManager:
             rowcount: int = cur.rowcount
             return rowcount
     
-    def execute_transaction(self, queries: List[Tuple[str, Optional[Tuple[Any, ...]]]]) -> bool:
+    # def execute_transaction(self, queries: List[Tuple[str, Optional[Tuple[Any, ...]]]]) -> bool:
+    def execute_transaction(self, queries: Sequence[Tuple[str, Optional[Tuple[Any, ...]]]]) -> bool:
         """
         Execute multiple queries in a transaction
         

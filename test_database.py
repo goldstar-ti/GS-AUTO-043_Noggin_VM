@@ -20,10 +20,9 @@ try:
     logger.info(f"PostgreSQL version: {version[0][0]}")
     
     logger.info("Testing dictionary query...")
-    tables: list = db_manager.execute_query_dict(
-        "SELECT table_name FROM information_schema.tables WHERE table_schema = 'public' ORDER BY table_name"
-    )
-    logger.info(f"Found {len(tables)} tables in public schema:")
+    # tables: list = db_manager.execute_query_dict("SELECT table_name FROM information_schema.tables WHERE table_schema = 'public' ORDER BY table_name")
+    tables: list = db_manager.execute_query_dict("SELECT table_name FROM information_schema.tables WHERE table_schema = 'noggin_schema' ORDER BY table_name")
+    logger.info(f"Found {len(tables)} tables in noggin_schema:")
     for row in tables:
         logger.info(f"  - {row['table_name']}")
     
