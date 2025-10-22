@@ -40,7 +40,9 @@ class ContinuousProcessorShutdownHandler:
         if not self.shutdown_requested:
             self.shutdown_requested = True
             shutdown_requested = True
+            print()
             self.logger.warning(f"\n{signal_name} received. Finishing current cycle then shutting down...")
+            print()
             self.logger.warning("Press Ctrl+C again to force immediate exit")
         else:
             self.logger.error("Second shutdown signal - forcing immediate exit")

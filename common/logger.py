@@ -69,7 +69,7 @@ class LoggerManager:
         console_formatter: logging.Formatter = logging.Formatter(
             # fmt='%(asctime)s\t%(levelname)-8s\t%(funcName)-40s\t%(message)s',
             # fmt='%(asctime)s\t%(levelname)-8s%(module)-15s%(funcName)-40s\t%(message)s\t[PID:%(process)d Line:%(lineno)d]'
-            fmt=f'%(asctime)s\t%(levelname)-8s%(module)-20s:%(lineno)-4d\t%(funcName)-40s%(message)s',
+            fmt=f'%(asctime)s\t%(levelname)-8s%(module)-30s:%(lineno)-4d\t%(funcName)-40s%(message)s',
             datefmt='%H:%M:%S'
         )
         console_handler: logging.StreamHandler = logging.StreamHandler(sys.stdout)
