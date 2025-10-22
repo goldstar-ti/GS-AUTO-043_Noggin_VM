@@ -126,7 +126,6 @@ class HashManager:
             raise HashLookupError(f"CSV file not found: {csv_file_path}")
 
         # use pandas to strip BOM marker added by Excel when saving UTF-8
-        # TODO rewrite connection manager to use sqlalchemy instead of psycopg2 to leverage pandas to_sql() method
         df: pd.DataFrame = pd.read_csv(csv_path, encoding='utf-8')
         df.to_csv(csv_path, index=False, encoding='utf-8')
         

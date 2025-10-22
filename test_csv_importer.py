@@ -22,15 +22,16 @@ try:
     
     logger.info("CSV Import Summary:")
     logger.info(f"  Files processed: {summary['files_processed']}")
-    logger.info(f"  TIPs imported: {summary['total_imported']}")
-    logger.info(f"  Duplicates: {summary['total_duplicates']}")
-    logger.info(f"  Errors: {summary['total_errors']}")
+    logger.info(f"  TIPs imported:   {summary['total_imported']}")
+    logger.info(f"  Duplicates:      {summary['total_duplicates']}")
+    logger.info(f"  Errors:          {summary['total_errors']}")
     
     print(f"\n✓ CSV Import Summary:")
     print(f"  Files processed: {summary['files_processed']}")
-    print(f"  TIPs imported: {summary['total_imported']}")
-    print(f"  Duplicates: {summary['total_duplicates']}")
-    print(f"  Errors: {summary['total_errors']}")
+    print(f"  TIPs imported:   {summary['total_imported']}")
+    print(f"  Duplicates:      {summary['total_duplicates']}")
+    print(f"  Errors:          {summary['total_errors']}")
+    print()
     
 except Exception as e:
     logger.error(f"Test failed: {e}", exc_info=True)

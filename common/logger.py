@@ -68,7 +68,8 @@ class LoggerManager:
         
         console_formatter: logging.Formatter = logging.Formatter(
             # fmt='%(asctime)s\t%(levelname)-8s\t%(funcName)-40s\t%(message)s',
-            fmt='%(asctime)s\t%(levelname)-8s%(module)-15s%(funcName)-40s\t%(message)-100s\t[PID:%(process)d Line:%(lineno)d]'
+            # fmt='%(asctime)s\t%(levelname)-8s%(module)-15s%(funcName)-40s\t%(message)s\t[PID:%(process)d Line:%(lineno)d]'
+            fmt=f'%(asctime)s\t%(levelname)-8s%(module)-20s:%(lineno)-4d\t%(funcName)-40s%(message)s',
             datefmt='%H:%M:%S'
         )
         console_handler: logging.StreamHandler = logging.StreamHandler(sys.stdout)
@@ -77,7 +78,7 @@ class LoggerManager:
         
         file_formatter: logging.Formatter = logging.Formatter(
             # fmt='%(asctime)s\t%(levelname)-8s\t%(funcName)-20s\t%(message)s',
-            fmt='%(asctime)s.%(msecs)03d | %(levelname)-8s | %(message)-100s | PID:%(process)-5d | THD:%(thread)d-%(threadName)-15s | Logger:%(name)-30s | Mod:%(module)-20s:%(lineno)-4d | Func:%(funcName)-30s'
+            fmt='%(asctime)s.%(msecs)03d | %(levelname)-8s | %(message)s | PID:%(process)-5d | THD:%(thread)d-%(threadName)-15s | Logger:%(name)-30s | Mod:%(module)-20s:%(lineno)-4d | Func:%(funcName)-30s',
             datefmt='%Y-%m-%d %H:%M:%S'
         )
         file_handler: logging.FileHandler = logging.FileHandler(log_file, encoding='utf-8')

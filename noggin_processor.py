@@ -129,7 +129,6 @@ def sanitise_filename(text: Optional[str]) -> str:
             .replace("\\", "").replace("*", "").replace("<", "")
             .replace(">", "").replace("?", "").replace("|", "").replace(":", ""))
 
-# TODO instead of flatten_json use pandas normalise functions to flatten more robustly
 def flatten_json(nested_json: Dict[str, Any], parent_key: str = '', sep: str = '_') -> Dict[str, Any]:
     """Flatten nested JSON structure"""
     items: List[Tuple[str, Any]] = []
@@ -298,9 +297,6 @@ def save_formatted_payload_text_file(inspection_folder: Path, response_data: Dic
         logger.error(f"IOError saving payload {payload_path}: {e}", exc_info=True)
         return None
 
-# TODO put utility functions into common/utils.py (create class in utils.py)
-# TODO add docstrings to functions
-
 def make_api_request(url: str, headers: Dict[str, str], tip_value: str,
                     max_retries: int = 5, backoff_factor: int = 2,
                     timeout: int = 30, max_backoff: int = 60) -> requests.Response:
@@ -413,8 +409,6 @@ def handle_api_error(response: requests.Response, tip_value: str, request_url: s
                         f"URL: {request_url}{additional_info}")
 
     return error_message
-
-# TODO refactor into classes
 
 def download_attachment(attachment_url: str, filename: str, lcd_inspection_id: str,
                        attachment_tip: str, inspection_folder: Path,
@@ -1157,7 +1151,4 @@ if __name__ == "__main__":
 
         session_logger.info(f"\nSESSION END: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
         session_logger.info(f"TOTAL EXECUTION TIME: {total_duration:.2f} seconds")
-
-# TODO use dataclasses
-
 
