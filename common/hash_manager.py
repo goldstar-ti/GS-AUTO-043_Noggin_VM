@@ -4,6 +4,7 @@ from pathlib import Path
 from typing import Optional, List, Dict, Any, Tuple
 from datetime import datetime
 import csv
+import pandas as pd
 
 logger: logging.Logger = logging.getLogger(__name__)
 
@@ -123,12 +124,17 @@ class HashManager:
         
         if not csv_path.exists():
             raise HashLookupError(f"CSV file not found: {csv_file_path}")
+
+        # use pandas to strip BOM marker added by Excel when saving UTF-8
+        # TODO rewrite connection manager to use sqlalchemy instead of psycopg2 to leverage pandas to_sql() method
+        df: pd.DataFrame = pd.read_csv(csv_path, encoding='utf-8')
+        df.to_csv(csv_path, index=False, encoding='utf-8')
         
         imported_count: int = 0
         skipped_count: int = 0
         
         logger.info(f"Migrating hash lookups from {csv_file_path}")
-        
+
         try:
             with open(csv_path, 'r', encoding='utf-8') as f:
                 reader = csv.DictReader(f)
