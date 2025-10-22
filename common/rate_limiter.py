@@ -124,7 +124,7 @@ class CircuitBreaker:
                           f"Failure rate: {failure_rate*100:.1f}%")
         
         elif self.state == CircuitState.CLOSED:
-            if len(self.recent_requests) >= self.sample_size and failure_rate > self.failure_threshold:
+            if len(self.recent_requests) >= self.sample_size and failure_rate >= self.failure_threshold: 
                 self.state = CircuitState.OPEN
                 self.opened_at = datetime.now()
                 logger.warning(f"Circuit breaker OPEN (failure threshold exceeded). "
