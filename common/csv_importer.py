@@ -33,7 +33,7 @@ class CSVImporter:
         
         self.input_folder.mkdir(parents=True, exist_ok=True)
         self.processed_folder.mkdir(parents=True, exist_ok=True)
-        self.error_folder.mkdir(parents=True, exist_ok=True
+        self.error_folder.mkdir(parents=True, exist_ok=True)
     
     def detect_object_type(self, headers: List[str]) -> Optional[str]:
         """
@@ -235,11 +235,17 @@ if __name__ == "__main__":
     from .config import ConfigLoader
     from .database import DatabaseConnectionManager
     from .logger import LoggerManager
+    import sys
+    from pathlib import Path
+    
+    # Add parent directory to path so we can find config files
+    script_dir: Path = Path(__file__).parent.parent
+    sys.path.insert(0, str(script_dir))
     
     try:
         config: ConfigLoader = ConfigLoader(
-            '../config/base_config.ini',
-            '../config/load_compliance_check_config.ini'
+            'config/base_config.ini',  # Changed from '../config/base_config.ini'
+            'config/load_compliance_check_config.ini'  # Changed from '../config/load_compliance_check_config.ini'
         )
         
         logger_manager: LoggerManager = LoggerManager(config, script_name='test_csv_importer')
