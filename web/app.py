@@ -24,7 +24,7 @@ hash_manager = HashManager(config, db_manager)
 
 # Users (in production, use database)
 users = {
-    "tifunction": generate_password_hash("DeadSafePaid13")
+    "tifunction": generate_password_hash("BankFreePlay13")
 }
 
 @auth.verify_password
