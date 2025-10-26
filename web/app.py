@@ -33,7 +33,7 @@ def verify_password(username, password):
         return username
 
 @app.route('/')
-@auth.login_required
+# @auth.login_required
 def index():
     """Dashboard home page"""
     try:

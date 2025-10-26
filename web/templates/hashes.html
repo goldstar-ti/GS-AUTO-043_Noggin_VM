@@ -1,0 +1,65 @@
+{% extends "base.html" %}
+
+{% block title %}Hash Management - Noggin Processor{% endblock %}
+
+{% block content %}
+<div class="card">
+    <h2>Entity Hash Statistics</h2>
+    
+    <table>
+        <thead>
+            <tr>
+                <th>Entity Type</th>
+                <th>Known</th>
+                <th>Unknown</th>
+                <th>Coverage</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for entity_type in ['vehicle', 'trailer', 'department', 'team'] %}
+            {% set known = stats.get(entity_type, {}).get('known', 0) %}
+            {% set unknown = stats.get(entity_type, {}).get('unknown', 0) %}
+            {% set total = known + unknown %}
+            {% set coverage = (known / total * 100) if total > 0 else 0 %}
+            <tr>
+                <td><strong>{{ entity_type.capitalize() }}</strong></td>
+                <td>{{ known }}</td>
+                <td>{{ unknown }}</td>
+                <td>
+                    {% if coverage == 100 %}
+                        <span class="badge success">{{ "%.1f"|format(coverage) }}%</span>
+                    {% elif coverage > 90 %}
+                        <span class="badge warning">{{ "%.1f"|format(coverage) }}%</span>
+                    {% else %}
+                        <span class="badge danger">{{ "%.1f"|format(coverage) }}%</span>
+                    {% endif %}
+                </td>
+                <td>
+                    {% if unknown > 0 %}
+                        <a href="#" class="btn">Export Unknown</a>
+                    {% else %}
+                        <span class="badge success">✓ Complete</span>
+                    {% endif %}
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+<div class="card">
+    <h2>Unknown Hashes Requiring Resolution</h2>
+    {% if unknown_counts %}
+        <p>The following entity types have unresolved hashes:</p>
+        <ul>
+            {% for item in unknown_counts %}
+            <li><strong>{{ item.entity_type.capitalize() }}:</strong> {{ item.count }} unknown hashes</li>
+            {% endfor %}
+        </ul>
+        <p>Use the CLI tool to export and resolve: <code>python manage_hashes.py export-unknown [type] --gui</code></p>
+    {% else %}
+        <p class="badge success">All hashes resolved!</p>
+    {% endif %}
+</div>
+{% endblock %}

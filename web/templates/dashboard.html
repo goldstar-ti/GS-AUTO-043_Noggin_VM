@@ -1,0 +1,86 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard - Noggin Processor{% endblock %}
+
+{% block content %}
+<div class="stats-grid">
+    {% set status_mapping = {
+        'complete': ('success', '✓'),
+        'pending': ('info', '⏳'),
+        'failed': ('danger', '✗'),
+        'partial': ('warning', '⚠'),
+        'api_failed': ('danger', '🔌'),
+        'interrupted': ('warning', '⏸')
+    } %}
+    
+    {% for stat in stats %}
+        {% set status_class, icon = status_mapping.get(stat.processing_status, ('secondary', '•')) %}
+        <div class="stat-card {{ status_class }}">
+            <div class="label">{{ icon }} {{ stat.processing_status|upper }}</div>
+            <div class="number">{{ stat.count }}</div>
+        </div>
+    {% endfor %}
+</div>
+
+<div class="card">
+    <h2>Today's Activity</h2>
+    <div class="stats-grid">
+        <div class="stat-card">
+            <div class="label">Total Processed</div>
+            <div class="number">{{ today_stats.total_today or 0 }}</div>
+        </div>
+        <div class="stat-card success">
+            <div class="label">Completed</div>
+            <div class="number">{{ today_stats.completed_today or 0 }}</div>
+        </div>
+        <div class="stat-card">
+            <div class="label">Success Rate</div>
+            <div class="number">
+                {% if today_stats.total_today and today_stats.total_today > 0 %}
+                    {{ "%.1f"|format((today_stats.completed_today / today_stats.total_today) * 100) }}%
+                {% else %}
+                    0%
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="card">
+    <h2>Recent Activity</h2>
+    <table>
+        <thead>
+            <tr>
+                <th>LCD Inspection ID</th>
+                <th>Date</th>
+                <th>Status</th>
+                <th>Attachments</th>
+                <th>Updated</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for item in recent %}
+            <tr>
+                <td>{{ item.lcd_inspection_id or 'N/A' }}</td>
+                <td>{{ item.inspection_date.strftime('%Y-%m-%d') if item.inspection_date else 'N/A' }}</td>
+                <td>
+                    {% set status_class = {
+                        'complete': 'success',
+                        'pending': 'info',
+                        'failed': 'danger',
+                        'partial': 'warning'
+                    }.get(item.processing_status, 'secondary') %}
+                    <span class="badge {{ status_class }}">{{ item.processing_status }}</span>
+                </td>
+                <td>{{ item.completed_attachment_count or 0 }} / {{ item.total_attachments or 0 }}</td>
+                <td>{{ item.updated_at.strftime('%Y-%m-%d %H:%M') if item.updated_at else 'N/A' }}</td>
+                <td>
+                    <a href="{{ url_for('inspection_detail', tip=item.tip) }}" class="btn">View</a>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

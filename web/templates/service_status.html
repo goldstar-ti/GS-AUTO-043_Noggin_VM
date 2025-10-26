@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+
+{% block title %}Service Status - Noggin Processor{% endblock %}
+
+{% block content %}
+<div class="card">
+    <h2>Service Status</h2>
+    
+    <div class="stats-grid">
+        <div class="stat-card {% if service_active %}success{% else %}danger{% endif %}">
+            <div class="label">Processor Service</div>
+            <div class="number">{{ '✓ Running' if service_active else '✗ Stopped' }}</div>
+        </div>
+    </div>
+</div>
+
+<div class="card">
+    <h2>Recent Logs</h2>
+    <pre style="background: #2c3e50; color: #ecf0f1; padding: 1rem; border-radius: 4px; overflow-x: auto; max-height: 600px; overflow-y: auto;">{{ recent_logs }}</pre>
+</div>
+
+<div class="card">
+    <h2>Service Actions</h2>
+    <p>Use command line to manage the service:</p>
+    <ul>
+        <li><code>./manage_service.sh status</code> - Check status</li>
+        <li><code>./manage_service.sh restart</code> - Restart service</li>
+        <li><code>./manage_service.sh logs</code> - View logs</li>
+    </ul>
+</div>
+{% endblock %}

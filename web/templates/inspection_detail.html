@@ -1,0 +1,121 @@
+{% extends "base.html" %}
+
+{% block title %}Inspection {{ inspection.lcd_inspection_id }} - Noggin Processor{% endblock %}
+
+{% block content %}
+<div class="card">
+    <h2>Inspection Details: {{ inspection.lcd_inspection_id or 'N/A' }}</h2>
+    
+    <table>
+        <tr>
+            <th>LCD Inspection ID</th>
+            <td>{{ inspection.lcd_inspection_id or 'N/A' }}</td>
+        </tr>
+        <tr>
+            <th>Inspection Date</th>
+            <td>{{ inspection.inspection_date.strftime('%Y-%m-%d %H:%M') if inspection.inspection_date else 'N/A' }}</td>
+        </tr>
+        <tr>
+            <th>Vehicle</th>
+            <td>{{ inspection.vehicle or 'N/A' }}</td>
+        </tr>
+        <tr>
+            <th>Trailer</th>
+            <td>{{ inspection.trailer or 'N/A' }}</td>
+        </tr>
+        <tr>
+            <th>Department</th>
+            <td>{{ inspection.department or 'N/A' }}</td>
+        </tr>
+        <tr>
+            <th>Team</th>
+            <td>{{ inspection.team or 'N/A' }}</td>
+        </tr>
+        <tr>
+            <th>Load Compliance</th>
+            <td>{{ inspection.load_compliance or 'N/A' }}</td>
+        </tr>
+        <tr>
+            <th>Processing Status</th>
+            <td>
+                {% set status_class = {
+                    'complete': 'success',
+                    'pending': 'info',
+                    'failed': 'danger',
+                    'partial': 'warning'
+                }.get(inspection.processing_status, 'secondary') %}
+                <span class="badge {{ status_class }}">{{ inspection.processing_status }}</span>
+            </td>
+        </tr>
+        <tr>
+            <th>Retry Count</th>
+            <td>{{ inspection.retry_count or 0 }}</td>
+        </tr>
+    </table>
+</div>
+
+<div class="card">
+    <h2>Attachments ({{ attachments|length }})</h2>
+    <table>
+        <thead>
+            <tr>
+                <th>Filename</th>
+                <th>Status</th>
+                <th>Size</th>
+                <th>Duration</th>
+                <th>Validation</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for att in attachments %}
+            <tr>
+                <td>{{ att.filename }}</td>
+                <td>
+                    {% set status_class = {
+                        'downloaded': 'success',
+                        'pending': 'info',
+                        'failed': 'danger'
+                    }.get(att.attachment_status, 'secondary') %}
+                    <span class="badge {{ status_class }}">{{ att.attachment_status }}</span>
+                </td>
+                <td>{{ "%.2f"|format(att.file_size_bytes / 1024 / 1024) }} MB</td>
+                <td>{{ "%.1f"|format(att.download_duration_seconds) }}s</td>
+                <td>
+                    {% if att.attachment_validation_status == 'valid' %}
+                        <span class="badge success">Valid</span>
+                    {% else %}
+                        <span class="badge warning">{{ att.attachment_validation_status or 'N/A' }}</span>
+                    {% endif %}
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+{% if errors %}
+<div class="card">
+    <h2>Recent Errors</h2>
+    <table>
+        <thead>
+            <tr>
+                <th>Type</th>
+                <th>Message</th>
+                <th>Time</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for error in errors %}
+            <tr>
+                <td><span class="badge danger">{{ error.error_type }}</span></td>
+                <td>{{ error.error_message[:100] }}</td>
+                <td>{{ error.created_at.strftime('%Y-%m-%d %H:%M') }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endif %}
+
+<a href="{{ url_for('inspections') }}" class="btn">← Back to Inspections</a>
+{% endblock %}

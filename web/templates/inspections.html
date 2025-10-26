@@ -1,0 +1,84 @@
+{% extends "base.html" %}
+
+{% block title %}Inspections - Noggin Processor{% endblock %}
+
+{% block content %}
+<div class="card">
+    <h2>Inspections</h2>
+    
+    <form class="filter-form" method="get">
+        <input type="text" name="search" placeholder="Search LCD ID, vehicle, trailer..." value="{{ search }}">
+        <select name="status">
+            <option value="">All Statuses</option>
+            <option value="complete" {% if status == 'complete' %}selected{% endif %}>Complete</option>
+            <option value="pending" {% if status == 'pending' %}selected{% endif %}>Pending</option>
+            <option value="failed" {% if status == 'failed' %}selected{% endif %}>Failed</option>
+            <option value="partial" {% if status == 'partial' %}selected{% endif %}>Partial</option>
+        </select>
+        <button type="submit" class="btn">Filter</button>
+    </form>
+    
+    <p>Showing {{ inspections|length }} of {{ total }} inspections</p>
+    
+    <table>
+        <thead>
+            <tr>
+                <th>LCD ID</th>
+                <th>Date</th>
+                <th>Vehicle</th>
+                <th>Trailer</th>
+                <th>Department</th>
+                <th>Status</th>
+                <th>Attachments</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for inspection in inspections %}
+            <tr>
+                <td>{{ inspection.lcd_inspection_id or 'N/A' }}</td>
+                <td>{{ inspection.inspection_date.strftime('%Y-%m-%d') if inspection.inspection_date else 'N/A' }}</td>
+                <td>{{ inspection.vehicle or 'N/A' }}</td>
+                <td>{{ inspection.trailer or 'N/A' }}</td>
+                <td>{{ inspection.department or 'N/A' }}</td>
+                <td>
+                    {% set status_class = {
+                        'complete': 'success',
+                        'pending': 'info',
+                        'failed': 'danger',
+                        'partial': 'warning'
+                    }.get(inspection.processing_status, 'secondary') %}
+                    <span class="badge {{ status_class }}">{{ inspection.processing_status }}</span>
+                </td>
+                <td>{{ inspection.completed_attachment_count or 0 }} / {{ inspection.total_attachments or 0 }}</td>
+                <td>
+                    <a href="{{ url_for('inspection_detail', tip=inspection.tip) }}" class="btn">View</a>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    
+    {% if total_pages > 1 %}
+    <div class="pagination">
+        {% if page > 1 %}
+            <a href="?page={{ page - 1 }}&status={{ status }}&search={{ search }}">← Previous</a>
+        {% endif %}
+        
+        {% for p in range(1, total_pages + 1) %}
+            {% if p == page %}
+                <a href="#" class="active">{{ p }}</a>
+            {% elif p <= 3 or p > total_pages - 3 or (p >= page - 2 and p <= page + 2) %}
+                <a href="?page={{ p }}&status={{ status }}&search={{ search }}">{{ p }}</a>
+            {% elif p == 4 or p == total_pages - 3 %}
+                <span>...</span>
+            {% endif %}
+        {% endfor %}
+        
+        {% if page < total_pages %}
+            <a href="?page={{ page + 1 }}&status={{ status }}&search={{ search }}">Next →</a>
+        {% endif %}
+    </div>
+    {% endif %}
+</div>
+{% endblock %}
