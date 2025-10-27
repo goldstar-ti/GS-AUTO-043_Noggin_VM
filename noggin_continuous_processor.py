@@ -1,230 +1,266 @@
-from __future__ import annotations
-import logging
-import time
-from pathlib import Path
-from datetime import datetime
-from typing import Optional, Dict, Any
-import signal
-import sys
+#!/usr/bin/env python3
+"""
+Noggin Continuous Processor
 
-from common import (
-    ConfigLoader, 
-    LoggerManager, 
-    DatabaseConnectionManager, 
-    HashManager, 
-    CircuitBreaker,
-    CSVImporter
-)
+Runs noggin_processor.py in a continuous loop with configurable sleep intervals.
+Includes CSV import and hash resolution cycles.
+"""
+
+from __future__ import annotations
+import sys
+import time
+import signal
+import subprocess
+import logging
+from datetime import datetime
+from pathlib import Path
+from typing import Dict, Any
+
+from common import ConfigLoader, LoggerManager, DatabaseConnectionManager, CSVImporter, HashManager
 
 logger: logging.Logger = logging.getLogger(__name__)
 
 shutdown_requested: bool = False
 
 
-class ContinuousProcessorShutdownHandler:
-    """Handles graceful shutdown for continuous processor"""
-    
-    def __init__(self, logger_instance: logging.Logger) -> None:
-        self.logger: logging.Logger = logger_instance
-        self.shutdown_requested: bool = False
-        
-        signal.signal(signal.SIGINT, self._signal_handler)
-        signal.signal(signal.SIGTERM, self._signal_handler)
-        
-        self.logger.info("Continuous processor shutdown handler initialised")
-    
-    def _signal_handler(self, signum: int, frame: Any) -> None:
-        global shutdown_requested
-        signal_name: str = "SIGINT (Ctrl+C)" if signum == signal.SIGINT else f"Signal {signum}"
-        
-        if not self.shutdown_requested:
-            self.shutdown_requested = True
-            shutdown_requested = True
-            print()
-            self.logger.warning(f"\n{signal_name} received. Finishing current cycle then shutting down...")
-            print()
-            self.logger.warning("Press Ctrl+C again to force immediate exit")
-        else:
-            self.logger.error("Second shutdown signal - forcing immediate exit")
-            sys.exit(1)
-    
-    def should_continue(self) -> bool:
-        return not self.shutdown_requested
+def signal_handler(signum: int, frame: Any) -> None:
+    """Handle shutdown signals gracefully"""
+    global shutdown_requested
+    logger.info(f"Received signal {signum}. Initiating graceful shutdown...")
+    shutdown_requested = True
 
 
 def run_single_processing_cycle(config: ConfigLoader, db_manager: DatabaseConnectionManager) -> Dict[str, int]:
     """
-    Run a single processing cycle
+    Execute one processing cycle by running noggin_processor.py
     
+    Args:
+        config: ConfigLoader instance
+        db_manager: DatabaseConnectionManager instance
+        
     Returns:
-        Dictionary with processing statistics
+        Dictionary with cycle status and duration
     """
-    import subprocess
+    cycle_start = datetime.now()
     
-    logger.info("="*80)
-    logger.info("Starting processing cycle")
-    logger.info("="*80)
-    
-    cycle_start_time: float = time.perf_counter()
+    logger.info("=" * 80)
+    logger.info(f"Starting processing cycle at {cycle_start.strftime('%Y-%m-%d %H:%M:%S')}")
+    logger.info("=" * 80)
     
     try:
+        script_dir = Path(__file__).parent
+        processor_script = script_dir / 'noggin_processor.py'
+        
+        if not processor_script.exists():
+            logger.error(f"Processor script not found: {processor_script}")
+            return {'status': 'error', 'duration_seconds': 0}
+        
         result = subprocess.run(
-            ['python', 'noggin_processor.py'],
+            [sys.executable, str(processor_script)],
+            cwd=str(script_dir),
             capture_output=True,
             text=True,
             timeout=3600
         )
         
-        cycle_duration: float = time.perf_counter() - cycle_start_time
+        cycle_end = datetime.now()
+        duration = (cycle_end - cycle_start).total_seconds()
         
         if result.returncode == 0:
-            logger.info(f"Processing cycle completed successfully in {cycle_duration:.1f}s")
-            return {'status': 'success', 'duration': cycle_duration}
+            logger.info(f"Processing cycle completed successfully in {duration:.1f} seconds")
+            return {'status': 'success', 'duration_seconds': duration}
         else:
             logger.error(f"Processing cycle failed with return code {result.returncode}")
-            logger.error(f"STDOUT: {result.stdout}")
-            logger.error(f"STDERR: {result.stderr}")
-            return {'status': 'failed', 'duration': cycle_duration}
-    
+            if result.stderr:
+                logger.error(f"Error output: {result.stderr[:500]}")
+            return {'status': 'failed', 'duration_seconds': duration}
+            
     except subprocess.TimeoutExpired:
-        logger.error("Processing cycle timed out after 3600s")
-        return {'status': 'timeout', 'duration': 3600}
-    
+        logger.error("Processing cycle timed out after 3600 seconds")
+        return {'status': 'timeout', 'duration_seconds': 3600}
     except Exception as e:
-        logger.error(f"Error running processing cycle: {e}", exc_info=True)
-        return {'status': 'error', 'duration': 0}
+        logger.error(f"Processing cycle error: {e}", exc_info=True)
+        return {'status': 'error', 'duration_seconds': 0}
+
+
+def run_csv_import_cycle(config: ConfigLoader, db_manager: DatabaseConnectionManager) -> Dict[str, int]:
+    """
+    Execute CSV import cycle
+    
+    Args:
+        config: ConfigLoader instance
+        db_manager: DatabaseConnectionManager instance
+        
+    Returns:
+        Dictionary with import statistics
+    """
+    logger.info("Starting CSV import cycle...")
+    
+    try:
+        csv_importer = CSVImporter(config, db_manager)
+        result = csv_importer.scan_and_import_csv_files()
+        
+        logger.info(f"CSV import cycle complete: {result['total_imported']} TIPs imported")
+        return result
+        
+    except Exception as e:
+        logger.error(f"CSV import cycle failed: {e}", exc_info=True)
+        return {
+            'files_processed': 0,
+            'total_imported': 0,
+            'total_duplicates': 0,
+            'total_errors': 1
+        }
+
+
+def run_hash_resolution_cycle(config: ConfigLoader, db_manager: DatabaseConnectionManager) -> int:
+    """
+    Run automatic hash resolution cycle
+    
+    Resolves any unknown hashes that now have entries in hash_lookup table.
+    
+    Args:
+        config: ConfigLoader instance
+        db_manager: DatabaseConnectionManager instance
+        
+    Returns:
+        Number of hashes resolved
+    """
+    logger.info("Starting hash resolution cycle...")
+    
+    try:
+        hash_manager = HashManager(config, db_manager)
+        resolved = hash_manager.auto_resolve_unknown_hashes()
+        
+        if resolved > 0:
+            logger.info(f"Hash resolution cycle complete: {resolved} hashes resolved")
+        else:
+            logger.debug("Hash resolution cycle complete: no hashes needed resolution")
+        
+        return resolved
+        
+    except Exception as e:
+        logger.error(f"Hash resolution cycle failed: {e}", exc_info=True)
+        return 0
 
 
 def get_processing_statistics(db_manager: DatabaseConnectionManager) -> Dict[str, int]:
-    """Get current processing statistics from database"""
-    query: str = """
-        SELECT 
-            processing_status,
-            COUNT(*) as count
-        FROM noggin_data
-        GROUP BY processing_status
     """
+    Get current processing statistics from database
     
-    results = db_manager.execute_query_dict(query)
-    
-    stats: Dict[str, int] = {}
-    for row in results:
-        stats[row['processing_status']] = row['count']
-    
-    return stats
-
-
-def log_cycle_summary(cycle_num: int, stats: Dict[str, int], cycle_result: Dict[str, Any]) -> None:
-    """Log summary of processing cycle"""
-    logger.info("="*80)
-    logger.info(f"CYCLE {cycle_num} SUMMARY")
-    logger.info("="*80)
-    logger.info(f"Status: {cycle_result.get('status', 'unknown')}")
-    logger.info(f"Duration: {cycle_result.get('duration', 0):.1f}s")
-    logger.info("")
-    logger.info("Database Statistics:")
-    logger.info(f"  Complete:          {stats.get('complete', 0):,}")
-    logger.info(f"  Pending:           {stats.get('pending', 0):,}")
-    logger.info(f"  Failed:            {stats.get('failed', 0):,}")
-    logger.info(f"  Partial:           {stats.get('partial', 0):,}")
-    logger.info(f"  Interrupted:       {stats.get('interrupted', 0):,}")
-    logger.info(f"  API Failed:        {stats.get('api_failed', 0):,}")
-    logger.info(f"  Permanently Failed: {stats.get('permanently_failed', 0):,}")
-    logger.info("="*80)
+    Args:
+        db_manager: DatabaseConnectionManager instance
+        
+    Returns:
+        Dictionary with counts by processing_status
+    """
+    try:
+        stats_query = """
+            SELECT 
+                processing_status,
+                COUNT(*) as count
+            FROM noggin_data
+            GROUP BY processing_status
+        """
+        results = db_manager.execute_query_dict(stats_query)
+        
+        stats = {row['processing_status']: row['count'] for row in results}
+        return stats
+        
+    except Exception as e:
+        logger.error(f"Failed to get processing statistics: {e}")
+        return {}
 
 
 def main() -> int:
-    """Main continuous processing loop"""
-    global shutdown_requested
+    """Main entry point for continuous processor"""
     
-    config: ConfigLoader = ConfigLoader(
-        'config/base_config.ini',
-        'config/load_compliance_check_config.ini'
-    )
-    
-    logger_manager: LoggerManager = LoggerManager(config, script_name='noggin_continuous_processor')
-    logger_manager.configure_application_logger()
-    
-    logger.info("="*80)
-    logger.info("NOGGIN CONTINUOUS PROCESSOR")
-    logger.info("="*80)
-    logger.info(f"Started at: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
-    logger.info("="*80)
-    
-    shutdown_handler: ContinuousProcessorShutdownHandler = ContinuousProcessorShutdownHandler(logger)
-    
-    db_manager: DatabaseConnectionManager = DatabaseConnectionManager(config)
-    csv_importer: CSVImporter = CSVImporter(config, db_manager)
-    
-    cycle_sleep_seconds: int = config.getint('continuous', 'cycle_sleep_seconds')
-    import_csv_every_n_cycles: int = config.getint('continuous', 'import_csv_every_n_cycles')
-    
-    logger.info(f"Cycle sleep time: {cycle_sleep_seconds}s")
-    logger.info(f"CSV import frequency: every {import_csv_every_n_cycles} cycles")
-    
-    cycle_count: int = 0
+    signal.signal(signal.SIGINT, signal_handler)
+    signal.signal(signal.SIGTERM, signal_handler)
     
     try:
-        while shutdown_handler.should_continue():
+        config = ConfigLoader(
+            'config/base_config.ini',
+            'config/load_compliance_check_config.ini'
+        )
+        
+        logger_manager = LoggerManager(config, script_name='noggin_continuous_processor')
+        logger_manager.configure_application_logger()
+        
+        cycle_sleep = config.getint('continuous', 'cycle_sleep_seconds')
+        csv_import_frequency = config.getint('continuous', 'import_csv_every_n_cycles')
+        
+        # New configuration for hash resolution
+        hash_resolution_frequency = config.getint('continuous', 'resolve_hashes_every_n_cycles', fallback=10)
+        
+        logger.info("Noggin Continuous Processor started")
+        logger.info(f"Configuration:")
+        logger.info(f"  - Cycle sleep: {cycle_sleep} seconds")
+        logger.info(f"  - CSV import frequency: every {csv_import_frequency} cycles")
+        logger.info(f"  - Hash resolution frequency: every {hash_resolution_frequency} cycles")
+        
+        db_manager = DatabaseConnectionManager(config)
+        
+        cycle_count = 0
+        total_processed = 0
+        
+        while not shutdown_requested:
             cycle_count += 1
-            cycle_start_time: float = time.perf_counter()
             
             logger.info(f"\n{'='*80}")
-            logger.info(f"CYCLE {cycle_count} - {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
-            logger.info(f"{'='*80}\n")
+            logger.info(f"CYCLE {cycle_count}")
+            logger.info(f"{'='*80}")
             
-            if cycle_count % import_csv_every_n_cycles == 0:
-                logger.info("Scanning for new CSV files...")
-                try:
-                    csv_summary: Dict[str, Any] = csv_importer.scan_and_import_csv_files()
-                    if csv_summary['files_processed'] > 0:
-                        logger.info(f"Imported {csv_summary['total_imported']} new TIPs from "
-                                   f"{csv_summary['files_processed']} CSV file(s)")
-                except Exception as e:
-                    logger.error(f"CSV import failed: {e}", exc_info=True)
+            # Run CSV import cycle (every N cycles)
+            if cycle_count % csv_import_frequency == 0:
+                import_result = run_csv_import_cycle(config, db_manager)
+                total_processed += import_result['total_imported']
             
-            cycle_result: Dict[str, Any] = run_single_processing_cycle(config, db_manager)
+            # Run hash resolution cycle (every N cycles)
+            if cycle_count % hash_resolution_frequency == 0:
+                resolved = run_hash_resolution_cycle(config, db_manager)
+                if resolved > 0:
+                    logger.info(f"Resolved {resolved} previously unknown hashes")
             
-            stats: Dict[str, int] = get_processing_statistics(db_manager)
-            log_cycle_summary(cycle_count, stats, cycle_result)
+            # Run main processing cycle
+            cycle_result = run_single_processing_cycle(config, db_manager)
             
-            pending_count: int = stats.get('pending', 0)
-            failed_count: int = stats.get('failed', 0)
-            partial_count: int = stats.get('partial', 0)
-            interrupted_count: int = stats.get('interrupted', 0)
-            api_failed_count: int = stats.get('api_failed', 0)
+            # Get current statistics
+            stats = get_processing_statistics(db_manager)
+            logger.info(f"\nCurrent Statistics:")
+            for status, count in sorted(stats.items()):
+                logger.info(f"  {status}: {count}")
             
-            work_remaining: int = pending_count + failed_count + partial_count + interrupted_count + api_failed_count
+            # Check for shutdown before sleeping
+            if shutdown_requested:
+                logger.info("Shutdown requested, exiting...")
+                break
             
-            if work_remaining == 0:
-                logger.info("No work remaining. Waiting for new CSVs...")
-            else:
-                logger.info(f"{work_remaining:,} TIPs require processing")
+            logger.info(f"\nSleeping for {cycle_sleep} seconds...")
             
-            if shutdown_handler.should_continue():
-                logger.info(f"Sleeping {cycle_sleep_seconds}s before next cycle...")
-                time.sleep(cycle_sleep_seconds)
+            # Sleep in 1-second intervals to allow responsive shutdown
+            for _ in range(cycle_sleep):
+                if shutdown_requested:
+                    break
+                time.sleep(1)
         
-        logger.info("\nShutdown signal received. Exiting gracefully...")
+        logger.info("="*80)
+        logger.info("Continuous processor shutdown complete")
+        logger.info(f"Total cycles executed: {cycle_count}")
+        logger.info(f"Total records processed: {total_processed}")
+        logger.info("="*80)
+        
         return 0
-    
+        
     except KeyboardInterrupt:
-        logger.warning("\nForced shutdown via KeyboardInterrupt")
-        return 1
-    
+        logger.info("Keyboard interrupt received, shutting down...")
+        return 0
     except Exception as e:
-        logger.error(f"Unexpected error: {e}", exc_info=True)
+        logger.error(f"Fatal error in continuous processor: {e}", exc_info=True)
         return 1
-    
     finally:
         if 'db_manager' in locals():
             db_manager.close_all()
-        
-        logger.info("="*80)
-        logger.info(f"CONTINUOUS PROCESSOR STOPPED")
-        logger.info(f"Total cycles completed: {cycle_count}")
-        logger.info(f"Stopped at: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
-        logger.info("="*80)
 
 
 if __name__ == "__main__":
