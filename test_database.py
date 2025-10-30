@@ -1,4 +1,5 @@
 from common import ConfigLoader, LoggerManager, DatabaseConnectionManager, DatabaseConnectionError
+from common import UNKNOWN_TEXT
 import logging
 
 config: ConfigLoader = ConfigLoader(

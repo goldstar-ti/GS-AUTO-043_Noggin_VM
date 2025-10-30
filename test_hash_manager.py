@@ -1,4 +1,5 @@
 from common import ConfigLoader, LoggerManager, DatabaseConnectionManager, HashManager
+from common import UNKNOWN_TEXT
 from pathlib import Path
 import logging
 

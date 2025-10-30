@@ -1,4 +1,5 @@
 from common import ConfigLoader, LoggerManager, CircuitBreaker, CircuitBreakerError
+from common import UNKNOWN_TEXT
 import logging
 
 config: ConfigLoader = ConfigLoader(

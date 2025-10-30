@@ -1,3 +1,201 @@
+""" noggin_processor.py
+    Module purpose
+    ---------------
+    This module processes "Load Compliance Check" (LCD) inspection records from a CSV
+    of TIP identifiers, retrieves their JSON payloads from a remote API, stores
+    metadata in PostgreSQL, downloads and validates attachment media, and writes
+    human-readable inspection reports and attachment files to disk. It includes
+    robust retry/backoff logic, a circuit breaker to protect the API, and graceful
+    shutdown handling.
+    High-level behaviour
+    --------------------
+    - Reads TIPs from a CSV file (expected column header: "tip").
+    - For each TIP:
+        - Uses an endpoint template ($tip) to build the API URL and GETs the JSON.
+        - Inserts/updates a noggin_data row with parsed response fields and meta.
+        - Creates a dated folder structure and writes a formatted text payload file.
+        - Downloads listed attachments, validates file integrity, computes MD5 and
+        records attachment state in the attachments table.
+        - Tracks errors in processing_errors and updates retry/backoff state on errors.
+    - Honors graceful shutdown (SIGINT/SIGTERM) finishing the current TIP when
+    possible; a second signal forces immediate exit.
+    - Emits logging to both application logger and a session logger file.
+    Primary public functions/classes
+    -------------------------------
+    - GracefulShutdownHandler(db_conn, logger_instance)
+        Handles SIGINT/SIGTERM, closes DB connections on exit, and provides a
+        should_continue_processing() method to let main stop gracefully.
+    - sanitise_filename(text)
+        Sanitises a string for safe use in filenames (removes or replaces unsafe
+        characters).
+    - flatten_json(nested_json, parent_key='', sep='_')
+        Flattens arbitrarily nested JSON (dicts/lists) into a single-level dict with
+        concatenated keys suitable for CSV or tabular storage.
+    - create_inspection_folder_structure(date_str, lcd_inspection_id)
+        Builds and creates a hierarchical path base_path/YYYY/MM/YYYY-MM-DD <id>
+        for storing inspection payloads/attachments; falls back to base_path/unknown_date.
+    - construct_attachment_filename(lcd_inspection_id, date_str, attachment_num)
+        Returns a standardized filename for attachments including a sanitized inspection
+        id, date (YYYYMMDD or "unknown") and zero-padded sequence number.
+    - calculate_md5_hash(file_path)
+        Computes and returns the MD5 hex digest for the specified file path.
+        Returns empty string on error.
+    - validate_attachment_file(file_path, expected_min_size=1024)
+        Performs basic integrity checks on a downloaded file: existence, minimum
+        size threshold, and a small header read to detect emptiness. Returns
+        (is_valid, file_size_bytes, error_message).
+    - save_formatted_payload_text_file(inspection_folder, response_data, lcd_inspection_id)
+        Writes a human-readable inspection report (and optionally the full JSON
+        payload) to a text file inside inspection_folder. Uses hash_manager to
+        resolve hashed fields to human-readable names where available. Returns the
+        saved file Path or None on I/O error.
+    - make_api_request(url, headers, tip_value, max_retries=5, backoff_factor=2,
+                    timeout=30, max_backoff=60)
+        Performs a GET with exponential backoff and retries on transient
+        connection/timeout errors. Attaches a private _retry_count attribute to the
+        returned Response for bookkeeping.
+    - handle_api_error(response, tip_value, request_url)
+        Produces a detailed, human-friendly error string for logging and DB storage
+        based on HTTP response code and body.
+    - download_attachment(attachment_url, filename, lcd_inspection_id, attachment_tip,
+                        inspection_folder, record_tip, attachment_sequence)
+        Downloads a single attachment to disk (temporary .tmp file -> final rename),
+        validates it, computes MD5, updates / inserts attachment row(s) and any
+        related processing_errors. Returns a tuple:
+        (success: bool, retry_count: int, file_size_mb: float, error_msg: Optional[str]).
+    - process_attachments(response_data, lcd_inspection_id, tip_value)
+        Orchestrates saving the payload file, creating the folder, iteratively
+        downloading and validating attachments, updating noggin_data status fields
+        (complete/partial/failed/interrupted) and logging a per-session record.
+    - insert_noggin_data_record(tip_value, response_data)
+        Parses response_data into typed fields (inspection_date, hashes, names,
+        load_compliance, $meta etc.) and INSERTs or UPDATEs the noggin_data table.
+        Also records the raw API payload and meta JSON for traceability.
+    - calculate_next_retry_time(retry_count)
+        Computes an exponential backoff next_retry_at datetime based on configured
+        retry settings. Returns a datetime far in the future when retry_count
+        exceeds configured max.
+    - get_tips_to_process_from_database(limit=10)
+        Convenience DB query that returns TIPs considered eligible for processing
+        according to retry/backoff rules and processing_status priorities.
+    - mark_permanently_failed(tip_value)
+        Marks a TIP as permanently failed after max retries are exhausted.
+    - should_process_tip(tip_value)
+        Inspect the noggin_data record (if present) and determines whether the TIP
+        should be processed now. Returns (should_process: bool, current_retry_count: Optional[int]).
+    - get_total_tip_count(tip_csv_file_path)
+        Counts valid (non-empty) TIPs in the CSV file for progress estimates.
+    - update_progress_tracking(processed_count, total_count, start_time_val)
+        Logs a progress update with TIPs/sec and ETA.
+    - log_shutdown_summary(processed_count, total_count, start_time_val, reason="manual")
+        Logs an overall shutdown summary including elapsed time and estimated
+        remaining duration.
+    - main()
+        The main processing loop: reads tip.csv, iterates rows, coordinates
+        circuit breaker interactions, API calling, DB updates, attachment processing,
+        retries/backoff and graceful shutdown. Returns number of TIPs processed.
+    Configuration and dependencies
+    ------------------------------
+    - Requires a ConfigLoader instance populated from:
+        'config/base_config.ini' and 'config/load_compliance_check_config.ini'
+    Expected config sections/keys used in this module (examples):
+        - [api]: base_url, media_service_url
+        - [processing]: too_many_requests_sleep_time, attachment_pause, max_api_retries,
+                        api_backoff_factor, api_max_backoff, api_timeout
+        - [output]: show_json_payload_in_text_file, show_compliance_status,
+                    filename_image_stub, unknown_response_output_text
+        - [paths]: base_output_path
+        - [retry]: max_retry_attempts, retry_backoff_multiplier
+        - object_type mapping via config.get_object_type_config()
+    - Relies on the following helper classes from common:
+        ConfigLoader, LoggerManager, DatabaseConnectionManager, HashManager,
+        CircuitBreaker, CircuitBreakerError
+    - External libraries used:
+        requests, psycopg2 (indirectly via DatabaseConnectionManager), standard
+        library modules (json, logging, pathlib, datetime, uuid, time, signal, sys,
+        atexit, hashlib, typing, csv).
+    Database schema expectations
+    ---------------------------
+    This module expects the following tables and important columns (non-exhaustive):
+    - noggin_data
+        - tip (primary key)
+        - object_type, inspection_date, lcd_inspection_id, coupling_id
+        - inspected_by, vehicle_hash, vehicle, vehicle_id, trailer_hash, trailer, trailer_id, ...
+        - load_compliance, processing_status, last_error_message
+        - retry_count, next_retry_at, last_retry_at, csv_imported_at
+        - total_attachments, completed_attachment_count, all_attachments_complete
+        - api_meta_created_date, api_meta_modified_date, api_meta_* fields
+        - api_payload_raw, api_meta_raw, updated_at, permanently_failed, has_unknown_hashes
+    - attachments
+        - record_tip, attachment_tip (unique constraint)
+        - attachment_sequence, filename, file_path
+        - attachment_status ('downloading', 'complete', 'failed', ...)
+        - attachment_validation_status ('not_validated', 'valid', 'validation_failed', ...)
+        - file_size_bytes, file_hash_md5
+        - download_started_at, download_completed_at, download_duration_seconds
+        - validation_error_message, last_error_message
+    - processing_errors
+        - tip, error_type, error_message, error_details (JSON/text), created_at
+    Side effects and filesystem behavior
+    -----------------------------------
+    - Writes per-inspection directories under configured base_output_path with
+    subfolders year/month and a folder named "<YYYY-MM-DD> <lcd_inspection_id>".
+    - Writes a human-readable inspection data text file (and optionally full JSON).
+    - Downloads attachments into the inspection folder; temporary files use .tmp
+    suffix until validation and rename succeed.
+    - Uses session-specific logging via LoggerManager to write a session log with a
+    header and per-record lines.
+    Important operational notes
+    ---------------------------
+    - Circuit breaker: before making API calls circuit_breaker.before_request() is
+    called; failures are recorded via circuit_breaker.record_failure() and a
+    successful call invokes circuit_breaker.record_success(). The circuit breaker
+    may prevent retries to avoid cascading failures.
+    - Retries/backoff: API-level transient errors are retried with exponential
+    backoff. Permanent HTTP errors (4xx/5xx) are stored in DB and the TIP is
+    scheduled for future retry based on calculate_next_retry_time().
+    - Graceful shutdown: the first SIGINT/SIGTERM will set an internal flag so the
+    script finishes the current TIP and stops taking new TIPs. A second signal
+    forces immediate cleanup and exit.
+    - Concurrency: the module is written for single-process execution. If multiple
+    workers/processes operate on the same DB, the schema must handle upserts and
+    conflicts appropriately (the code uses ON CONFLICT for key operations).
+    - Validation thresholds: validate_attachment_file() uses a default minimum file
+    size (1024 bytes). Adjust this threshold via the function parameters if the
+    media service produces smaller-but-valid files.
+    Exit codes
+    ----------
+    - main() returns 1 when fatal startup errors occur (missing CSV or CSV format).
+    - When executed as __main__, the script logs status and exits normally (0) on
+    success; unexpected exceptions are re-raised after logging.
+    Example usage
+    -------------
+    - Run from the system environment where config files and tip.csv are available:
+        python noggin_processor.py
+    - Ensure config files contain correct API endpoints, DB connection details (used
+    by DatabaseConnectionManager), and output path permissions.
+    Extensibility suggestions
+    -------------------------
+    - Abstract retry/backoff configuration to be injected for easier unit testing.
+    - Replace direct requests.get calls with a wrapper interface to facilitate
+    mocking in tests.
+    - Add more granular attachment type detection (content-type / magic bytes)
+    beyond basic size/header checks if required.
+    Security and privacy
+    --------------------
+    - Ensure access tokens or API credentials used by headers are kept secure and not
+    logged. This module attempts to avoid logging full payloads unless explicitly
+    enabled by configuration (show_json_payload_in_text_file).
+    - Attachment storage may contain sensitive images; secure file permissions and
+    accessible output path accordingly.
+    Limitations
+    -----------
+    - The module assumes stable database connectivity and that the DatabaseConnectionManager
+    implements execute_query_dict and execute_update semantics shown. Errors closing
+    DB connections are logged but not fatal during shutdown cleanup.
+    - Date parsing uses datetime.fromisoformat after normalizing 'Z' to '+00:00';
+    non-ISO date formats may be treated as unknown.
+"""
 from __future__ import annotations
 import requests
 import json
@@ -150,7 +348,27 @@ def flatten_json(nested_json: Dict[str, Any], parent_key: str = '', sep: str = '
 
 
 def create_inspection_folder_structure(date_str: str, lcd_inspection_id: str) -> Path:
-    """Create hierarchical folder structure for inspection"""
+    """Create hierarchical folder structure for inspection.
+
+    Creates a folder structure based on the date and LCD inspection ID in the format:
+    base_path/year/month/YYYY-MM-DD inspection_id
+
+    If the date cannot be parsed, creates a folder under base_path/unknown_date/
+
+    Args:
+        date_str (str): Date string in ISO format (e.g. "2023-05-20" or "2023-05-20Z")
+        lcd_inspection_id (str): Unique identifier for the LCD inspection
+
+    Returns:
+        Path: Path object pointing to the created inspection folder
+
+    Raises:
+        None: Exceptions are caught and handled internally with fallback folder creation
+
+    Example:
+        >>> create_inspection_folder_structure("2023-05-20", "LCD123")
+        PosixPath('/base_path/2023/05/2023-05-20 LCD123')
+    """
     try:
         date_obj: datetime = datetime.fromisoformat(date_str.replace('Z', '+00:00'))
         year: str = str(date_obj.year)
@@ -232,6 +450,7 @@ def save_formatted_payload_text_file(inspection_folder: Path, response_data: Dic
         with open(payload_path, 'w', encoding='utf-8') as f:
             f.write("="*60 + "\n")
             f.write("LOAD COMPLIANCE CHECK INSPECTION REPORT\n")
+            f.write(f"RECORD GENERATED: {datetime.now().strftime('%d-%m-%Y')}\n")
             f.write("="*60 + "\n\n")
 
             f.write(f"LCD Inspection ID:     {response_data.get('lcdInspectionId', unknown_response_output_text)}\n\n")

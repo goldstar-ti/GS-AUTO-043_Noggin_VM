@@ -1,4 +1,5 @@
 from common import ConfigLoader, LoggerManager, DatabaseConnectionManager, CSVImporter
+from common import UNKNOWN_TEXT
 import logging
 from typing import Dict, Any
 

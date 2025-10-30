@@ -1,4 +1,5 @@
 from __future__ import annotations
+from common import UNKNOWN_TEXT
 import subprocess
 import sys
 from datetime import datetime

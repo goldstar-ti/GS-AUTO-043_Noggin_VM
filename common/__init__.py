@@ -5,6 +5,9 @@ from .hash_manager import HashManager, HashLookupError
 from .csv_importer import CSVImporter, CSVImportError
 from .rate_limiter import CircuitBreaker, CircuitBreakerError, CircuitState
 
+### GLOBAL CONSTANTS
+UNKNOWN_TEXT = "UNKNOWN"
+
 __all__ = [
     'ConfigLoader',
     'ConfigurationError',
