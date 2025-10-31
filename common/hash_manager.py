@@ -486,6 +486,35 @@ class HashManager:
         
         return count
 
+    def update_lookup_type_if_unknown(self, tip_hash: str, context_key: str) -> None:
+        """
+        Update lookup_type from unknown to context key if still unknown
+        
+        Args:
+            tip_hash: Hash value
+            context_key: Key from JSON (team, vehicle, whichDepartmentDoesTheLoadBelongTo, trailer)
+        """
+        normalised_key = 'department' if context_key == 'whichDepartmentDoesTheLoadBelongTo' else context_key
+        
+        try:
+            self.db_manager.execute_update(
+                """
+                UPDATE hash_lookup
+                SET lookup_type = %s,
+                    updated_at = CURRENT_TIMESTAMP
+                WHERE tip_hash = %s
+                AND lookup_type = 'unknown'
+                """,
+                (normalised_key, tip_hash)
+            )
+            
+            if (tip_hash, 'unknown') in self._cache:
+                value = self._cache.pop((tip_hash, 'unknown'))
+                self._cache[(tip_hash, normalised_key)] = value
+                logger.debug(f"Updated lookup_type: {tip_hash[:16]}... from unknown to {normalised_key}")
+                
+        except Exception as e:
+            logger.debug(f"Could not update lookup_type for {tip_hash}: {e}")
 
 if __name__ == "__main__":
     from .config import ConfigLoader

@@ -210,7 +210,7 @@ import atexit
 import hashlib
 from typing import Optional, List, Dict, Any, Tuple
 
-from common import ConfigLoader, LoggerManager, DatabaseConnectionManager, HashManager, CircuitBreaker, CircuitBreakerError
+from common import ConfigLoader, LoggerManager, DatabaseConnectionManager, HashManager, CircuitBreaker, CircuitBreakerError, UNKNOWN_TEXT
 
 start_time: float = time.perf_counter()
 
@@ -317,7 +317,6 @@ class GracefulShutdownHandler:
     def should_continue_processing(self) -> bool:
         return not self.shutdown_requested
 
-
 shutdown_handler: GracefulShutdownHandler = GracefulShutdownHandler(db_manager, logger)
 
 def sanitise_filename(text: Optional[str]) -> str:
@@ -345,7 +344,6 @@ def flatten_json(nested_json: Dict[str, Any], parent_key: str = '', sep: str = '
         else:
             items.append((new_key, value))
     return dict(items)
-
 
 def create_inspection_folder_structure(date_str: str, lcd_inspection_id: str) -> Path:
     """Create hierarchical folder structure for inspection.
@@ -388,7 +386,6 @@ def create_inspection_folder_structure(date_str: str, lcd_inspection_id: str) ->
         logger.info(f"Created fallback folder: {fallback_folder}")
         return fallback_folder
 
-
 def construct_attachment_filename(lcd_inspection_id: str, date_str: str, attachment_num: int) -> str:
     """Construct standardised attachment filename"""
     sanitised_lcd: str = sanitise_filename(lcd_inspection_id)
@@ -404,7 +401,6 @@ def construct_attachment_filename(lcd_inspection_id: str, date_str: str, attachm
     filename: str = f"{sanitised_lcd}_{date_part}_{filename_image_stub}_{attachment_num_str}.jpg"
     return filename
 
-
 def calculate_md5_hash(file_path: Path) -> str:
     """Calculate MD5 hash of file"""
     md5_hash: hashlib._Hash = hashlib.md5()
@@ -416,7 +412,6 @@ def calculate_md5_hash(file_path: Path) -> str:
     except Exception as e:
         logger.warning(f"Could not calculate MD5 for {file_path}: {e}")
         return ""
-
 
 def validate_attachment_file(file_path: Path, expected_min_size: int = 1024) -> Tuple[bool, int, Optional[str]]:
     """Validate downloaded file integrity"""
@@ -501,6 +496,19 @@ def save_formatted_payload_text_file(inspection_folder: Path, response_data: Dic
                 else:
                     f.write(f"Load Compliance:       {unknown_response_output_text}\n\n")
 
+            straps_value = response_data.get('straps')
+            if straps_value is not None:
+                f.write(f"Straps:                {straps_value}\n\n")
+                no_of_straps = response_data.get('noOfStraps', UNKNOWN_TEXT)
+                f.write(f"Number of Straps:      {no_of_straps}\n\n")
+
+            chains_value = response_data.get('chains')
+            if chains_value is not None:
+                f.write(f"Chains:                {chains_value}\n\n")
+
+            mass_value = response_data.get('mass', UNKNOWN_TEXT)
+            f.write(f"Mass:                  {mass_value}\n\n")
+
             attachment_count: int = len(response_data.get('attachments', []))
             f.write(f"Attachments:           {attachment_count}\n\n")
 
@@ -571,7 +579,6 @@ def make_api_request(url: str, headers: Dict[str, str], tip_value: str,
         raise last_exception
     else:
         raise Exception(f"Unexpected error in retry logic for TIP {tip_value}")
-
 
 def handle_api_error(response: requests.Response, tip_value: str, request_url: str) -> str:
     """Generate detailed error message from API response"""
@@ -905,7 +912,6 @@ def process_attachments(response_data: Dict[str, Any], lcd_inspection_id: str, t
     attachment_names_str: str = ";".join(attachment_filenames) if attachment_filenames else "FAILED"
     session_logger.info(f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\t{tip_value}\t{lcd_inspection_id}\t{successful_downloads}\t{attachment_names_str}")
 
-
 def insert_noggin_data_record(tip_value: str, response_data: Dict[str, Any]) -> None:
     """Insert or update noggin_data record with API response"""
     meta: Dict[str, Any] = response_data.get('$meta', {})
@@ -923,21 +929,39 @@ def insert_noggin_data_record(tip_value: str, response_data: Dict[str, Any]) -> 
 
     vehicle_hash: Optional[str] = response_data.get('vehicle')
     vehicle: Optional[str] = hash_manager.lookup_hash('vehicle', vehicle_hash, tip_value, lcd_inspection_id) if vehicle_hash else None
+    if vehicle_hash:
+        vehicle = hash_manager.lookup_hash('vehicle', vehicle_hash, tip_value, lcd_inspection_id)
+        hash_manager.update_lookup_type_if_unknown(vehicle_hash, 'vehicle')
 
     trailer_hash: Optional[str] = response_data.get('trailer')
     trailer: Optional[str] = hash_manager.lookup_hash('trailer', trailer_hash, tip_value, lcd_inspection_id) if trailer_hash else None
+    if trailer_hash:
+        trailer = hash_manager.lookup_hash('trailer', trailer_hash, tip_value, lcd_inspection_id)
+        hash_manager.update_lookup_type_if_unknown(trailer_hash, 'trailer')
 
     trailer2_hash: Optional[str] = response_data.get('trailer2')
     trailer2: Optional[str] = hash_manager.lookup_hash('trailer', trailer2_hash, tip_value, lcd_inspection_id) if trailer2_hash else None
-
+    if trailer2_hash:
+        trailer2 = hash_manager.lookup_hash('trailer', trailer2_hash, tip_value, lcd_inspection_id)
+        hash_manager.update_lookup_type_if_unknown(trailer2_hash, 'trailer')
+        
     trailer3_hash: Optional[str] = response_data.get('trailer3')
     trailer3: Optional[str] = hash_manager.lookup_hash('trailer', trailer3_hash, tip_value, lcd_inspection_id) if trailer3_hash else None
-
+    if trailer3_hash:
+        trailer3 = hash_manager.lookup_hash('trailer', trailer3_hash, tip_value, lcd_inspection_id)
+        hash_manager.update_lookup_type_if_unknown(trailer3_hash, 'trailer')
+        
     department_hash: Optional[str] = response_data.get('whichDepartmentDoesTheLoadBelongTo')
     department: Optional[str] = hash_manager.lookup_hash('department', department_hash, tip_value, lcd_inspection_id) if department_hash else None
+    if department_hash:
+        department = hash_manager.lookup_hash('department', department_hash, tip_value, lcd_inspection_id)
+        hash_manager.update_lookup_type_if_unknown(department_hash, 'department')
 
     team_hash: Optional[str] = response_data.get('team')
     team: Optional[str] = hash_manager.lookup_hash('team', team_hash, tip_value, lcd_inspection_id) if team_hash else None
+    if team_hash:
+        team = hash_manager.lookup_hash('team', team_hash, tip_value, lcd_inspection_id)
+        hash_manager.update_lookup_type_if_unknown(team_hash, 'team')
 
     compliant_yes: bool = response_data.get('isYourLoadCompliantWithTheLoadRestraintGuide2004Ye', False)
     compliant_no: bool = response_data.get('isYourLoadCompliantWithTheLoadRestraintGuide2004No', False)
@@ -984,10 +1008,11 @@ def insert_noggin_data_record(tip_value: str, response_data: Dict[str, Any]) -> 
             department_hash, department, team_hash, team,
             load_compliance, processing_status, has_unknown_hashes,
             total_attachments, csv_imported_at,
+            straps, no_of_straps, chains, mass,
             api_meta_created_date, api_meta_modified_date,
             api_meta_security, api_meta_type, api_meta_tip,
             api_meta_sid, api_meta_branch, api_meta_parent,
-            api_meta_errors, api_meta_raw, api_payload_raw
+            api_meta_errors, api_meta_raw, api_payload_raw, raw_json
         ) VALUES (
             %s, %s, %s, %s, %s,
             %s, %s, %s, %s,
@@ -998,10 +1023,11 @@ def insert_noggin_data_record(tip_value: str, response_data: Dict[str, Any]) -> 
             %s, %s, %s, %s,
             %s, %s, %s,
             %s, %s,
+            %s, %s, %s, %s,
             %s, %s,
             %s, %s, %s,
             %s, %s, %s,
-            %s, %s, %s
+            %s, %s, %s, %s
         )
         ON CONFLICT (tip) DO UPDATE SET
             object_type = EXCLUDED.object_type,
@@ -1032,6 +1058,10 @@ def insert_noggin_data_record(tip_value: str, response_data: Dict[str, Any]) -> 
             processing_status = EXCLUDED.processing_status,
             has_unknown_hashes = EXCLUDED.has_unknown_hashes,
             total_attachments = EXCLUDED.total_attachments,
+            straps = EXCLUDED.straps,
+            no_of_straps = EXCLUDED.no_of_straps,
+            chains = EXCLUDED.chains,
+            mass = EXCLUDED.mass,
             api_meta_created_date = EXCLUDED.api_meta_created_date,
             api_meta_modified_date = EXCLUDED.api_meta_modified_date,
             api_meta_security = EXCLUDED.api_meta_security,
@@ -1043,6 +1073,7 @@ def insert_noggin_data_record(tip_value: str, response_data: Dict[str, Any]) -> 
             api_meta_errors = EXCLUDED.api_meta_errors,
             api_meta_raw = EXCLUDED.api_meta_raw,
             api_payload_raw = EXCLUDED.api_payload_raw,
+            raw_json = EXCLUDED.raw_json,
             updated_at = CURRENT_TIMESTAMP
         """,
         (
@@ -1055,10 +1086,13 @@ def insert_noggin_data_record(tip_value: str, response_data: Dict[str, Any]) -> 
             department_hash, department, team_hash, team,
             load_compliance, 'api_success', has_unknown,
             len(response_data.get('attachments', [])), None,
+            response_data.get('straps'), response_data.get('noOfStraps'), 
+            response_data.get('chains'), response_data.get('mass'),
             api_meta_created, api_meta_modified,
             meta.get('security'), meta.get('type'), meta.get('tip'),
             meta.get('sid'), meta.get('branch'), parent_array,
-            json.dumps(meta.get('errors', [])), json.dumps(meta), json.dumps(response_data)
+            json.dumps(meta.get('errors', [])), json.dumps(meta), json.dumps(response_data),
+            json.dumps(response_data)
         )
     )
 

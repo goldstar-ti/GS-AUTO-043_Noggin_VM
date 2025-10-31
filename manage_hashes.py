@@ -17,7 +17,6 @@ from common import ConfigLoader, LoggerManager, DatabaseConnectionManager, HashM
 
 logger: logging.Logger = logging.getLogger(__name__)
 
-
 def select_file_gui(title: str = "Select CSV File", filetypes: list = None) -> Optional[Path]:
     """
     Open GUI file picker dialog
@@ -60,7 +59,6 @@ def select_file_gui(title: str = "Select CSV File", filetypes: list = None) -> O
     if file_path:
         return Path(file_path)
     return None
-
 
 def get_file_path(provided_path: Optional[str], use_gui: bool, operation: str, entity_type: str) -> Optional[Path]:
     """
@@ -115,7 +113,6 @@ def get_file_path(provided_path: Optional[str], use_gui: bool, operation: str, e
     
     return file_path
 
-
 def cmd_import(args: argparse.Namespace, hash_manager: HashManager) -> int:
     """Import entity hashes from CSV file"""
     
@@ -161,7 +158,6 @@ def cmd_import(args: argparse.Namespace, hash_manager: HashManager) -> int:
         print(f"\n✗ Import failed: {e}")
         logger.error(f"Import failed: {e}", exc_info=True)
         return 1
-
 
 def cmd_export_unknown(args: argparse.Namespace, hash_manager: HashManager) -> int:
     """Export unknown hashes to CSV file"""
@@ -229,7 +225,6 @@ def cmd_export_unknown(args: argparse.Namespace, hash_manager: HashManager) -> i
         logger.error(f"Export failed: {e}", exc_info=True)
         return 1
 
-
 def cmd_list(args: argparse.Namespace, hash_manager: HashManager) -> int:
     """List all known hashes for entity type"""
     
@@ -279,7 +274,6 @@ def cmd_list(args: argparse.Namespace, hash_manager: HashManager) -> int:
         print(f"\n✗ List failed: {e}")
         logger.error(f"List failed: {e}", exc_info=True)
         return 1
-
 
 def cmd_stats(args: argparse.Namespace, hash_manager: HashManager) -> int:
     """Display hash statistics"""
@@ -335,7 +329,6 @@ def cmd_stats(args: argparse.Namespace, hash_manager: HashManager) -> int:
         logger.error(f"Stats failed: {e}", exc_info=True)
         return 1
 
-
 def cmd_search(args: argparse.Namespace, hash_manager: HashManager) -> int:
     """Search for hash or name"""
     
@@ -386,6 +379,35 @@ def cmd_search(args: argparse.Namespace, hash_manager: HashManager) -> int:
         logger.error(f"Search failed: {e}", exc_info=True)
         return 1
 
+def update_lookup_type_if_unknown(self, tip_hash: str, context_key: str) -> None:
+    """
+    Update lookup_type from unknown to context key if still unknown
+    
+    Args:
+        tip_hash: Hash value
+        context_key: Key from JSON (team, vehicle, whichDepartmentDoesTheLoadBelongTo, trailer)
+    """
+    normalised_key = 'department' if context_key == 'whichDepartmentDoesTheLoadBelongTo' else context_key
+    
+    try:
+        self.db_manager.execute_update(
+            """
+            UPDATE hash_lookup
+            SET lookup_type = %s,
+                updated_at = CURRENT_TIMESTAMP
+            WHERE tip_hash = %s
+              AND lookup_type = 'unknown'
+            """,
+            (normalised_key, tip_hash)
+        )
+        
+        if (tip_hash, 'unknown') in self._cache:
+            value = self._cache.pop((tip_hash, 'unknown'))
+            self._cache[(tip_hash, normalised_key)] = value
+            logger.debug(f"Updated lookup_type: {tip_hash[:16]}... from unknown to {normalised_key}")
+            
+    except Exception as e:
+        logger.debug(f"Could not update lookup_type for {tip_hash}: {e}")
 
 def main() -> int:
     """Main entry point"""
@@ -483,7 +505,6 @@ Examples:
     
     finally:
         db_manager.close_all()
-
 
 if __name__ == "__main__":
     sys.exit(main())
