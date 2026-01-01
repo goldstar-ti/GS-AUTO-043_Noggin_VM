@@ -290,7 +290,7 @@ class GracefulShutdownHandler:
         signal_name: str = "SIGINT (Ctrl+C)" if signum == signal.SIGINT else f"Signal {signum}"
 
         if not self.shutdown_requested:
-            self.shutdown_requested = True
+            self.shutdown_requested = TrueZ
             shutdown_requested = True
             self.logger.warning(f"\n{signal_name} received. Finishing current TIP then shutting down...")
             self.logger.warning(f"Currently processing: {current_tip_being_processed or 'None'}")
