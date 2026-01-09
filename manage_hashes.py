@@ -1,8 +1,13 @@
-#!/usr/bin/env python3
 """
-Hash Management CLI Tool with File Selection Support
+Hash Management CLI Tool
 
-Manages entity hash imports, exports, and lookups with optional GUI file picker.
+Simple command-line interface for hash lookup operations.
+For bulk imports, use hash_lookup_sync.py instead.
+
+Commands:
+    stats   - Display hash statistics
+    search  - Search for hash or name
+    lookup  - Lookup a specific hash
 """
 
 from __future__ import annotations
@@ -11,271 +16,13 @@ import argparse
 import logging
 from pathlib import Path
 from typing import Optional
-from tabulate import tabulate
 
-from common import ConfigLoader, LoggerManager, DatabaseConnectionManager, HashManager
+from tabulate import tabulate
 
 logger: logging.Logger = logging.getLogger(__name__)
 
-def select_file_gui(title: str = "Select CSV File", filetypes: list = None) -> Optional[Path]:
-    """
-    Open GUI file picker dialog
-    
-    Args:
-        title: Dialog window title
-        filetypes: List of (description, pattern) tuples
-        
-    Returns:
-        Selected file path or None if cancelled
-    """
-    try:
-        import tkinter as tk
-        from tkinter import filedialog
-    except ImportError:
-        print("Error: tkinter not available. Install with: sudo apt install python3-tk")
-        return None
-    
-    # Set default filetypes
-    if filetypes is None:
-        filetypes = [
-            ("CSV files", "*.csv"),
-            ("All files", "*.*")
-        ]
-    
-    # Create root window (hidden)
-    root = tk.Tk()
-    root.withdraw()  # Hide main window
-    root.attributes('-topmost', True)  # Bring dialog to front
-    
-    # Open file dialog
-    file_path = filedialog.askopenfilename(
-        title=title,
-        filetypes=filetypes,
-        initialdir=str(Path.cwd())
-    )
-    
-    root.destroy()
-    
-    if file_path:
-        return Path(file_path)
-    return None
 
-def get_file_path(provided_path: Optional[str], use_gui: bool, operation: str, entity_type: str) -> Optional[Path]:
-    """
-    Get file path from argument, GUI, or prompt
-    
-    Args:
-        provided_path: Path provided via command line
-        use_gui: Whether to use GUI file picker
-        operation: Operation name (for prompts)
-        entity_type: Entity type (for prompts)
-        
-    Returns:
-        Path object or None
-    """
-    # If path provided via CLI, use it
-    if provided_path:
-        file_path = Path(provided_path)
-        if not file_path.exists():
-            print(f"Error: File not found: {file_path}")
-            return None
-        return file_path
-    
-    # If GUI requested, open file picker
-    if use_gui:
-        print(f"Opening file picker for {operation} {entity_type} hashes...")
-        file_path = select_file_gui(
-            title=f"Select CSV file to {operation} {entity_type} hashes",
-            filetypes=[
-                ("CSV files", "*.csv"),
-                ("Text files", "*.txt"),
-                ("All files", "*.*")
-            ]
-        )
-        
-        if file_path:
-            print(f"Selected: {file_path}")
-            return file_path
-        else:
-            print("No file selected")
-            return None
-    
-    # Otherwise, prompt for path
-    path_input = input(f"Enter path to CSV file for {operation} {entity_type} hashes: ").strip()
-    if not path_input:
-        print("No file path provided")
-        return None
-    
-    file_path = Path(path_input)
-    if not file_path.exists():
-        print(f"Error: File not found: {file_path}")
-        return None
-    
-    return file_path
-
-def cmd_import(args: argparse.Namespace, hash_manager: HashManager) -> int:
-    """Import entity hashes from CSV file"""
-    
-    # Get file path
-    csv_path = get_file_path(
-        args.csv_file,
-        args.gui,
-        "import",
-        args.entity_type
-    )
-    
-    if not csv_path:
-        return 1
-    
-    # Confirm import
-    if not args.yes:
-        response = input(f"Import {args.entity_type} hashes from {csv_path.name}? (y/n): ")
-        if response.lower() != 'y':
-            print("Import cancelled")
-            return 0
-    
-    logger.info(f"Importing {args.entity_type} hashes from {csv_path}")
-    
-    try:
-        imported, duplicates, errors = hash_manager.import_hashes_from_csv(
-            args.entity_type,
-            csv_path,
-            source=args.source or 'manual_import'
-        )
-        
-        print(f"\n✓ Import Complete:")
-        print(f"  Imported:   {imported}")
-        print(f"  Duplicates: {duplicates}")
-        print(f"  Errors:     {errors}")
-        
-        if errors > 0:
-            print(f"\n⚠ Warning: {errors} errors occurred during import")
-            return 1
-        
-        return 0
-    
-    except Exception as e:
-        print(f"\n✗ Import failed: {e}")
-        logger.error(f"Import failed: {e}", exc_info=True)
-        return 1
-
-def cmd_export_unknown(args: argparse.Namespace, hash_manager: HashManager) -> int:
-    """Export unknown hashes to CSV file"""
-    
-    # Determine output path
-    if args.output_file:
-        output_path = Path(args.output_file)
-    elif args.gui:
-        print(f"Opening save dialog for {args.entity_type} unknown hashes...")
-        
-        try:
-            import tkinter as tk
-            from tkinter import filedialog
-        except ImportError:
-            print("Error: tkinter not available")
-            return 1
-        
-        root = tk.Tk()
-        root.withdraw()
-        root.attributes('-topmost', True)
-        
-        default_filename = f"unknown_{args.entity_type}_{Path.cwd().stem}.csv"
-        
-        file_path = filedialog.asksaveasfilename(
-            title=f"Save unknown {args.entity_type} hashes",
-            defaultextension=".csv",
-            initialfile=default_filename,
-            filetypes=[
-                ("CSV files", "*.csv"),
-                ("All files", "*.*")
-            ]
-        )
-        
-        root.destroy()
-        
-        if not file_path:
-            print("Export cancelled")
-            return 0
-        
-        output_path = Path(file_path)
-    else:
-        # Prompt for path
-        default = f"unknown_{args.entity_type}.csv"
-        path_input = input(f"Enter output file path [{default}]: ").strip()
-        output_path = Path(path_input) if path_input else Path(default)
-    
-    logger.info(f"Exporting unknown {args.entity_type} hashes to {output_path}")
-    
-    try:
-        count = hash_manager.export_unknown_hashes(args.entity_type, output_path)
-        
-        if count > 0:
-            print(f"\n✓ Exported {count} unknown {args.entity_type} hashes to:")
-            print(f"  {output_path.absolute()}")
-            print(f"\nNext steps:")
-            print(f"  1. Open the CSV file and fill in the 'name' column")
-            print(f"  2. Re-import with: python manage_hashes.py import {args.entity_type} {output_path}")
-        else:
-            print(f"\n✓ No unknown {args.entity_type} hashes found")
-        
-        return 0
-    
-    except Exception as e:
-        print(f"\n✗ Export failed: {e}")
-        logger.error(f"Export failed: {e}", exc_info=True)
-        return 1
-
-def cmd_list(args: argparse.Namespace, hash_manager: HashManager) -> int:
-    """List all known hashes for entity type"""
-    
-    logger.info(f"Listing {args.entity_type} hashes")
-    
-    try:
-        hashes = hash_manager.db_manager.execute_query_dict(
-            """
-            SELECT hash_value, entity_name, source, created_at
-            FROM entity_hashes
-            WHERE entity_type = %s
-            ORDER BY entity_name
-            LIMIT %s
-            """,
-            (args.entity_type, args.limit)
-        )
-        
-        if not hashes:
-            print(f"\nNo {args.entity_type} hashes found")
-            return 0
-        
-        print(f"\n{args.entity_type.upper()} HASHES ({len(hashes)} shown):")
-        print("="*80)
-        
-        table_data = [
-            [
-                h['hash_value'][:16] + '...',
-                h['entity_name'],
-                h['source'],
-                h['created_at'].strftime('%Y-%m-%d') if h['created_at'] else 'N/A'
-            ]
-            for h in hashes
-        ]
-        
-        print(tabulate(
-            table_data,
-            headers=['Hash (truncated)', 'Name', 'Source', 'Created'],
-            tablefmt='simple'
-        ))
-        
-        if len(hashes) == args.limit:
-            print(f"\n(Showing first {args.limit} results. Use --limit to see more)")
-        
-        return 0
-    
-    except Exception as e:
-        print(f"\n✗ List failed: {e}")
-        logger.error(f"List failed: {e}", exc_info=True)
-        return 1
-
-def cmd_stats(args: argparse.Namespace, hash_manager: HashManager) -> int:
+def cmd_stats(args: argparse.Namespace, hash_manager: 'HashManager') -> int:
     """Display hash statistics"""
     
     logger.info("Generating hash statistics")
@@ -283,191 +30,212 @@ def cmd_stats(args: argparse.Namespace, hash_manager: HashManager) -> int:
     try:
         stats = hash_manager.get_hash_statistics()
         
-        print("\nHASH STATISTICS:")
-        print("="*80)
+        print("\n" + "=" * 60)
+        print("HASH LOOKUP STATISTICS")
+        print("=" * 60)
+        
+        print("\nBy Lookup Type:")
+        print("-" * 40)
         
         table_data = []
-        for entity_type in ['vehicle', 'trailer', 'department', 'team']:
-            known = stats.get(entity_type, {}).get('known', 0)
-            unknown = stats.get(entity_type, {}).get('unknown', 0)
-            total = known + unknown
+        for lookup_type in ['vehicle', 'trailer', 'team', 'department', 'uhf', 'unknown']:
+            type_stats = stats.get(lookup_type, {})
+            count = type_stats.get('count', 0) if isinstance(type_stats, dict) else 0
             
-            if total > 0:
-                coverage = (known / total) * 100
-                status = "✓" if coverage == 100 else "⚠" if coverage > 90 else "✗"
-            else:
-                coverage = 0
-                status = "-"
+            if count > 0:
+                table_data.append([lookup_type.capitalize(), count])
+        
+        if table_data:
+            print(tabulate(table_data, headers=['Type', 'Count'], tablefmt='simple'))
+        
+        print(f"\nTotal: {stats.get('total', 0)}")
+        
+        # Source type breakdown
+        by_source = stats.get('by_source_type', {})
+        if by_source:
+            print("\nBy Source Type (Noggin classification):")
+            print("-" * 40)
             
+            source_data = [[source, count] for source, count in sorted(by_source.items())]
+            print(tabulate(source_data, headers=['Source Type', 'Count'], tablefmt='simple'))
+        
+        # Cache stats
+        cache_stats = hash_manager.get_cache_stats()
+        print(f"\nCache: {'loaded' if cache_stats['cache_loaded'] else 'not loaded'}, "
+              f"{cache_stats['cache_size']} entries")
+        
+        print("=" * 60 + "\n")
+        return 0
+        
+    except Exception as e:
+        print(f"\nError getting statistics: {e}")
+        logger.error(f"Stats failed: {e}", exc_info=True)
+        return 1
+
+
+def cmd_search(args: argparse.Namespace, hash_manager: 'HashManager') -> int:
+    """Search for hash or name"""
+    
+    search_term = args.search_term
+    logger.info(f"Searching for: {search_term}")
+    
+    try:
+        results = hash_manager.search_hash(search_term)
+        
+        if not results:
+            print(f"\nNo results found for: {search_term}")
+            return 0
+        
+        print(f"\nSEARCH RESULTS ({len(results)} found):")
+        print("=" * 80)
+        
+        table_data = []
+        for r in results:
             table_data.append([
-                status,
-                entity_type.capitalize(),
-                known,
-                unknown,
-                total,
-                f"{coverage:.1f}%"
+                r['lookup_type'].capitalize(),
+                r['source_type'] or '-',
+                r['resolved_value'],
+                r['tip_hash'][:20] + '...'
             ])
         
         print(tabulate(
             table_data,
-            headers=['', 'Entity Type', 'Known', 'Unknown', 'Total', 'Coverage'],
+            headers=['Type', 'Source', 'Name', 'Hash (truncated)'],
             tablefmt='simple'
         ))
         
-        # Show warnings
-        print()
-        for entity_type in ['vehicle', 'trailer', 'department', 'team']:
-            unknown = stats.get(entity_type, {}).get('unknown', 0)
-            if unknown > 0:
-                print(f"⚠ {unknown} unknown {entity_type} hashes need resolution")
-                print(f"  Export with: python manage_hashes.py export-unknown {entity_type} --gui")
+        if len(results) >= 50:
+            print("\n(Results limited to 50. Refine your search for more specific results.)")
         
         return 0
-    
+        
     except Exception as e:
-        print(f"\n✗ Stats failed: {e}")
-        logger.error(f"Stats failed: {e}", exc_info=True)
-        return 1
-
-def cmd_search(args: argparse.Namespace, hash_manager: HashManager) -> int:
-    """Search for hash or name"""
-    
-    search_term = args.search_term.lower()
-    
-    logger.info(f"Searching for: {search_term}")
-    
-    try:
-        results = hash_manager.db_manager.execute_query_dict(
-            """
-            SELECT entity_type, hash_value, entity_name, source
-            FROM entity_hashes
-            WHERE LOWER(entity_name) LIKE %s
-               OR LOWER(hash_value) LIKE %s
-            ORDER BY entity_type, entity_name
-            LIMIT 50
-            """,
-            (f"%{search_term}%", f"%{search_term}%")
-        )
-        
-        if not results:
-            print(f"\nNo results found for: {args.search_term}")
-            return 0
-        
-        print(f"\nSEARCH RESULTS ({len(results)} found):")
-        print("="*80)
-        
-        table_data = [
-            [
-                r['entity_type'].capitalize(),
-                r['hash_value'][:20] + '...',
-                r['entity_name'],
-                r['source']
-            ]
-            for r in results
-        ]
-        
-        print(tabulate(
-            table_data,
-            headers=['Type', 'Hash (truncated)', 'Name', 'Source'],
-            tablefmt='simple'
-        ))
-        
-        return 0
-    
-    except Exception as e:
-        print(f"\n✗ Search failed: {e}")
+        print(f"\nSearch failed: {e}")
         logger.error(f"Search failed: {e}", exc_info=True)
         return 1
 
-def update_lookup_type_if_unknown(self, tip_hash: str, context_key: str) -> None:
-    """
-    Update lookup_type from unknown to context key if still unknown
+
+def cmd_lookup(args: argparse.Namespace, hash_manager: 'HashManager') -> int:
+    """Lookup a specific hash"""
     
-    Args:
-        tip_hash: Hash value
-        context_key: Key from JSON (team, vehicle, whichDepartmentDoesTheLoadBelongTo, trailer)
-    """
-    normalised_key = 'department' if context_key == 'whichDepartmentDoesTheLoadBelongTo' else context_key
+    tip_hash = args.hash_value
+    logger.info(f"Looking up hash: {tip_hash}")
     
     try:
-        self.db_manager.execute_update(
-            """
-            UPDATE hash_lookup
-            SET lookup_type = %s,
-                updated_at = CURRENT_TIMESTAMP
-            WHERE tip_hash = %s
-              AND lookup_type = 'unknown'
-            """,
-            (normalised_key, tip_hash)
-        )
+        metadata = hash_manager.lookup_hash_with_metadata(tip_hash)
         
-        if (tip_hash, 'unknown') in self._cache:
-            value = self._cache.pop((tip_hash, 'unknown'))
-            self._cache[(tip_hash, normalised_key)] = value
-            logger.debug(f"Updated lookup_type: {tip_hash[:16]}... from unknown to {normalised_key}")
-            
+        if not metadata:
+            print(f"\nHash not found: {tip_hash}")
+            return 1
+        
+        print(f"\nHASH LOOKUP RESULT:")
+        print("=" * 60)
+        print(f"  Hash:          {tip_hash}")
+        print(f"  Resolved Name: {metadata['resolved_value']}")
+        print(f"  Lookup Type:   {metadata['lookup_type']}")
+        print(f"  Source Type:   {metadata['source_type'] or '-'}")
+        print("=" * 60 + "\n")
+        
+        return 0
+        
     except Exception as e:
-        logger.debug(f"Could not update lookup_type for {tip_hash}: {e}")
+        print(f"\nLookup failed: {e}")
+        logger.error(f"Lookup failed: {e}", exc_info=True)
+        return 1
+
+
+def cmd_list_type(args: argparse.Namespace, hash_manager: 'HashManager') -> int:
+    """List all entries of a specific lookup_type"""
+    
+    lookup_type = args.lookup_type
+    logger.info(f"Listing all {lookup_type} entries")
+    
+    try:
+        results = hash_manager.get_by_type(lookup_type)
+        
+        if not results:
+            print(f"\nNo {lookup_type} entries found")
+            return 0
+        
+        print(f"\n{lookup_type.upper()} ENTRIES ({len(results)} total):")
+        print("=" * 80)
+        
+        # Apply limit
+        display_results = results[:args.limit]
+        
+        table_data = []
+        for r in display_results:
+            table_data.append([
+                r['resolved_value'],
+                r['source_type'] or '-',
+                r['tip_hash'][:24] + '...'
+            ])
+        
+        print(tabulate(
+            table_data,
+            headers=['Name', 'Source Type', 'Hash (truncated)'],
+            tablefmt='simple'
+        ))
+        
+        if len(results) > args.limit:
+            print(f"\n(Showing {args.limit} of {len(results)}. Use --limit to see more.)")
+        
+        return 0
+        
+    except Exception as e:
+        print(f"\nList failed: {e}")
+        logger.error(f"List failed: {e}", exc_info=True)
+        return 1
+
 
 def main() -> int:
     """Main entry point"""
     
     parser = argparse.ArgumentParser(
-        description='Manage entity hash lookups for Noggin data',
+        description='Hash lookup CLI tool',
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
-  # Import with GUI file picker
-  python manage_hashes.py import vehicle --gui
-  
-  # Import from specific file
-  python manage_hashes.py import vehicle vehicles.csv
-  
-  # Export unknown hashes with save dialog
-  python manage_hashes.py export-unknown trailer --gui
-  
-  # List all vehicles
-  python manage_hashes.py list vehicle
-  
-  # Show statistics
-  python manage_hashes.py stats
-  
-  # Search for a hash or name
-  python manage_hashes.py search "TRUCK-001"
-        """
-    )
+    # Show statistics
+    python manage_hashes.py stats
     
-    parser.add_argument(
-        '--gui',
-        action='store_true',
-        help='Use GUI file picker (requires tkinter)'
+    # Search for a name
+    python manage_hashes.py search "MB26"
+    python manage_hashes.py search "Air Liquide"
+    
+    # Lookup a specific hash
+    python manage_hashes.py lookup 02409bd3dd8355a53b3cef56e0eb6440b653bfad9579e7e602528db25cfbdc34
+    
+    # List all vehicles
+    python manage_hashes.py list vehicle
+    
+    # List all trailers (first 100)
+    python manage_hashes.py list trailer --limit 100
+
+Note: For importing/syncing hash data, use hash_lookup_sync.py instead.
+        """
     )
     
     subparsers = parser.add_subparsers(dest='command', help='Command to execute')
     
-    # Import command
-    import_parser = subparsers.add_parser('import', help='Import entity hashes from CSV')
-    import_parser.add_argument('entity_type', choices=['vehicle', 'trailer', 'department', 'team'])
-    import_parser.add_argument('csv_file', nargs='?', help='Path to CSV file (optional with --gui)')
-    import_parser.add_argument('--source', help='Source identifier for import')
-    import_parser.add_argument('-y', '--yes', action='store_true', help='Skip confirmation prompt')
-    
-    # Export unknown command
-    export_parser = subparsers.add_parser('export-unknown', help='Export unknown hashes to CSV')
-    export_parser.add_argument('entity_type', choices=['vehicle', 'trailer', 'department', 'team'])
-    export_parser.add_argument('output_file', nargs='?', help='Output CSV file path (optional with --gui)')
-    
-    # List command
-    list_parser = subparsers.add_parser('list', help='List all known hashes')
-    list_parser.add_argument('entity_type', choices=['vehicle', 'trailer', 'department', 'team'])
-    list_parser.add_argument('--limit', type=int, default=50, help='Maximum results to show (default: 50)')
-    
     # Stats command
-    stats_parser = subparsers.add_parser('stats', help='Display hash statistics')
+    subparsers.add_parser('stats', help='Display hash statistics')
     
     # Search command
     search_parser = subparsers.add_parser('search', help='Search for hash or name')
-    search_parser.add_argument('search_term', help='Search term (hash or name)')
+    search_parser.add_argument('search_term', help='Search term (name or partial hash)')
+    
+    # Lookup command
+    lookup_parser = subparsers.add_parser('lookup', help='Lookup a specific hash')
+    lookup_parser.add_argument('hash_value', help='Full hash value to lookup')
+    
+    # List command
+    list_parser = subparsers.add_parser('list', help='List all entries of a type')
+    list_parser.add_argument('lookup_type', 
+                            choices=['vehicle', 'trailer', 'team', 'department', 'uhf'],
+                            help='Lookup type to list')
+    list_parser.add_argument('--limit', type=int, default=50, 
+                            help='Maximum results to show (default: 50)')
     
     args = parser.parse_args()
     
@@ -475,7 +243,11 @@ Examples:
         parser.print_help()
         return 1
     
-    # Initialize components
+    # Import dependencies
+    sys.path.insert(0, str(Path(__file__).parent))
+    from common import ConfigLoader, LoggerManager, DatabaseConnectionManager, HashManager
+    
+    # Initialise components
     config = ConfigLoader(
         'config/base_config.ini',
         'config/load_compliance_check_config.ini'
@@ -488,23 +260,21 @@ Examples:
     hash_manager = HashManager(config, db_manager)
     
     try:
-        # Execute command
-        if args.command == 'import':
-            return cmd_import(args, hash_manager)
-        elif args.command == 'export-unknown':
-            return cmd_export_unknown(args, hash_manager)
-        elif args.command == 'list':
-            return cmd_list(args, hash_manager)
-        elif args.command == 'stats':
+        if args.command == 'stats':
             return cmd_stats(args, hash_manager)
         elif args.command == 'search':
             return cmd_search(args, hash_manager)
+        elif args.command == 'lookup':
+            return cmd_lookup(args, hash_manager)
+        elif args.command == 'list':
+            return cmd_list_type(args, hash_manager)
         else:
             print(f"Unknown command: {args.command}")
             return 1
     
     finally:
         db_manager.close_all()
+
 
 if __name__ == "__main__":
     sys.exit(main())

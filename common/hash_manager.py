@@ -1,10 +1,16 @@
+"""
+Hash Manager - Runtime hash lookup operations
+
+Provides in-memory cached lookups for resolving Noggin hashes to human-readable values.
+The hash_lookup table is populated by hash_lookup_sync.py from weekly Noggin exports.
+
+This module is used by processors during data extraction to resolve vehicle, trailer,
+team, and department hashes to their display names.
+"""
+
 from __future__ import annotations
 import logging
-from pathlib import Path
-from typing import Optional, List, Dict, Any, Tuple
-from datetime import datetime
-import csv
-import pandas as pd
+from typing import Optional, Dict, Any, List, Tuple
 
 logger: logging.Logger = logging.getLogger(__name__)
 
@@ -15,7 +21,12 @@ class HashLookupError(Exception):
 
 
 class HashManager:
-    """Manages hash lookups and resolution for Noggin data"""
+    """
+    Manages hash lookups with in-memory caching for performance.
+    
+    The cache is loaded on first lookup and provides O(1) access to resolved values.
+    Cache invalidation happens automatically when the sync script runs weekly.
+    """
     
     def __init__(self, config: 'ConfigLoader', db_manager: 'DatabaseConnectionManager') -> None:
         """
@@ -27,10 +38,9 @@ class HashManager:
         """
         self.config: 'ConfigLoader' = config
         self.db_manager: 'DatabaseConnectionManager' = db_manager
-        self.log_path: Path = Path(config.get('paths', 'base_log_path'))
-        self.log_path.mkdir(parents=True, exist_ok=True)
         
-        self._cache: Dict[Tuple[str, str], str] = {}
+        # Cache structure: {tip_hash: {'lookup_type': str, 'resolved_value': str, 'source_type': str}}
+        self._cache: Dict[str, Dict[str, str]] = {}
         self._cache_loaded: bool = False
     
     def _load_cache(self) -> None:
@@ -39,12 +49,16 @@ class HashManager:
             return
         
         try:
-            results: List[Tuple[Any, ...]] = self.db_manager.execute_query(
-                "SELECT tip_hash, lookup_type, resolved_value FROM hash_lookup"
+            results: List[Dict[str, Any]] = self.db_manager.execute_query_dict(
+                "SELECT tip_hash, lookup_type, resolved_value, source_type FROM hash_lookup"
             )
             
-            for tip_hash, lookup_type, resolved_value in results:
-                self._cache[(tip_hash, lookup_type)] = resolved_value
+            for row in results:
+                self._cache[row['tip_hash']] = {
+                    'lookup_type': row['lookup_type'],
+                    'resolved_value': row['resolved_value'],
+                    'source_type': row['source_type']
+                }
             
             self._cache_loaded = True
             logger.info(f"Loaded {len(self._cache)} hash lookups into cache")
@@ -53,478 +67,213 @@ class HashManager:
             logger.error(f"Failed to load hash lookup cache: {e}")
             raise HashLookupError(f"Cache load failed: {e}")
     
-    def lookup_hash(self, lookup_type: str, tip_hash: str, tip_value: Optional[str] = None, 
-                   lcd_inspection_id: Optional[str] = None) -> str:
+    def invalidate_cache(self) -> None:
+        """
+        Invalidate the cache to force reload on next lookup.
+        Call this after running hash_lookup_sync.py.
+        """
+        self._cache.clear()
+        self._cache_loaded = False
+        logger.info("Hash lookup cache invalidated")
+    
+    def lookup_hash(self, tip_hash: str, expected_type: Optional[str] = None) -> Optional[str]:
         """
         Lookup hash and return resolved value
         
         Args:
-            lookup_type: Type of lookup (vehicle, trailer, department, team)
             tip_hash: Hash value to resolve
-            tip_value: TIP value for logging unknown hashes (optional)
-            lcd_inspection_id: LCD Inspection ID for logging (optional)
+            expected_type: Expected lookup_type for validation (optional)
             
         Returns:
-            Resolved value or "Unknown (hash)" if not found
+            Resolved value or None if not found
         """
+        if not tip_hash:
+            return None
+        
         if not self._cache_loaded:
             self._load_cache()
         
-        cache_key: Tuple[str, str] = (tip_hash, lookup_type)
+        cached = self._cache.get(tip_hash)
         
-        if cache_key in self._cache:
-            return self._cache[cache_key]
+        if not cached:
+            logger.debug(f"Hash not found: {tip_hash[:16]}...")
+            return None
         
-        self._log_unknown_hash(lookup_type, tip_hash, tip_value, lcd_inspection_id)
-        
-        try:
-            self.db_manager.execute_update(
-                """
-                INSERT INTO hash_lookup_unknown (tip_hash, lookup_type, first_encountered)
-                VALUES (%s, %s, %s)
-                ON CONFLICT (tip_hash, lookup_type) DO NOTHING
-                """,
-                (tip_hash, lookup_type, datetime.now())
+        # Optional type validation
+        if expected_type and cached['lookup_type'] != expected_type:
+            logger.warning(
+                f"Hash {tip_hash[:16]}... expected type '{expected_type}' "
+                f"but found '{cached['lookup_type']}'"
             )
-        except Exception as e:
-            logger.warning(f"Could not insert unknown hash: {e}")
         
-        return f"Unknown ({tip_hash})"
+        return cached['resolved_value']
     
-    def _log_unknown_hash(self, lookup_type: str, tip_hash: str, 
-                         tip_value: Optional[str], lcd_inspection_id: Optional[str]) -> None:
-        """Log unknown hash to dedicated file"""
-        unknown_log_file: Path = self.log_path / 'unknown_hashes.log'
-        
-        timestamp: str = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-        lcd_id: str = lcd_inspection_id or 'UNKNOWN'
-        tip: str = tip_value or 'UNKNOWN'
-        
-        log_entry: str = f"{timestamp} | {lookup_type} | {tip_hash} | {lcd_id} | TIP: {tip}\n"
-        
-        try:
-            with open(unknown_log_file, 'a', encoding='utf-8') as f:
-                f.write(log_entry)
-        except Exception as e:
-            logger.warning(f"Could not write to unknown hashes log: {e}")
-        
-        logger.warning(f"Unknown hash encountered: {lookup_type}={tip_hash}")
-    
-    def migrate_lookup_table_from_csv(self, csv_file_path: str) -> Tuple[int, int]:
+    def lookup_hash_with_metadata(self, tip_hash: str) -> Optional[Dict[str, str]]:
         """
-        Migrate hash lookup table from CSV to PostgreSQL
+        Lookup hash and return full metadata
         
         Args:
-            csv_file_path: Path to lookup_table.csv
+            tip_hash: Hash value to resolve
             
         Returns:
-            Tuple of (imported_count, skipped_count)
+            Dictionary with lookup_type, resolved_value, source_type, or None if not found
         """
-        csv_path: Path = Path(csv_file_path)
+        if not tip_hash:
+            return None
         
-        if not csv_path.exists():
-            raise HashLookupError(f"CSV file not found: {csv_file_path}")
-
-        df: pd.DataFrame = pd.read_csv(csv_path, encoding='utf-8')
-        df.to_csv(csv_path, index=False, encoding='utf-8')
+        if not self._cache_loaded:
+            self._load_cache()
         
-        imported_count: int = 0
-        skipped_count: int = 0
-        
-        logger.info(f"Migrating hash lookups from {csv_file_path}")
-
-        try:
-            with open(csv_path, 'r', encoding='utf-8') as f:
-                reader = csv.DictReader(f)
-                
-                if 'TIP' not in reader.fieldnames or 'VALUE' not in reader.fieldnames:
-                    raise HashLookupError(f"CSV must contain 'TIP' and 'VALUE' columns. Found: {reader.fieldnames}")
-                
-                for row in reader:
-                    tip_hash: str = row['TIP'].strip()
-                    resolved_value: str = row['VALUE'].strip()
-                    
-                    if not tip_hash or not resolved_value:
-                        skipped_count += 1
-                        continue
-                    
-                    lookup_type: str = self._detect_lookup_type(tip_hash, resolved_value)
-                    
-                    try:
-                        self.db_manager.execute_update(
-                            """
-                            INSERT INTO hash_lookup (tip_hash, lookup_type, resolved_value)
-                            VALUES (%s, %s, %s)
-                            ON CONFLICT (tip_hash, lookup_type) 
-                            DO UPDATE SET resolved_value = EXCLUDED.resolved_value, updated_at = CURRENT_TIMESTAMP
-                            """,
-                            (tip_hash, lookup_type, resolved_value)
-                        )
-                        imported_count += 1
-                    except Exception as e:
-                        logger.warning(f"Could not import hash {tip_hash}: {e}")
-                        skipped_count += 1
-            
-            self._cache_loaded = False
-            
-            logger.info(f"Migration complete: {imported_count} imported, {skipped_count} skipped")
-            return imported_count, skipped_count
-            
-        except Exception as e:
-            logger.error(f"Migration failed: {e}", exc_info=True)
-            raise HashLookupError(f"Migration failed: {e}")
+        return self._cache.get(tip_hash)
     
-    def _detect_lookup_type(self, tip_hash: str, resolved_value: str) -> str:
+    def get_lookup_type(self, tip_hash: str) -> Optional[str]:
         """
-        Detect lookup type from resolved value pattern
+        Get the lookup_type for a hash
         
         Args:
             tip_hash: Hash value
-            resolved_value: Resolved value
             
         Returns:
-            Lookup type string
+            Lookup type (vehicle, trailer, team, department, uhf) or None
         """
-        value_upper: str = resolved_value.upper()
+        if not tip_hash:
+            return None
         
-        if any(dept in value_upper for dept in ['DRIVERS', 'TRANSPORT', 'WORKSHOP', 'ADMIN']):
-            return 'department'
-        elif 'TEAM' in value_upper or ' - ' in resolved_value:
-            return 'team'
-        elif any(c.isdigit() for c in resolved_value) and len(resolved_value) <= 10:
-            if resolved_value.startswith(('1', '2', '3', '4', '5', '6', '7', '8', '9')):
-                return 'vehicle'
+        if not self._cache_loaded:
+            self._load_cache()
         
-        return 'unknown'
-    
-    def resolve_unknown_hash(self, tip_hash: str, lookup_type: str, resolved_value: str) -> bool:
-        """
-        Manually resolve an unknown hash
-        
-        Args:
-            tip_hash: Hash to resolve
-            lookup_type: Type of lookup
-            resolved_value: Value to associate with hash
-            
-        Returns:
-            True if successful, False otherwise
-        """
-        try:
-            self.db_manager.execute_update(
-                """
-                INSERT INTO hash_lookup (tip_hash, lookup_type, resolved_value)
-                VALUES (%s, %s, %s)
-                ON CONFLICT (tip_hash, lookup_type) 
-                DO UPDATE SET resolved_value = EXCLUDED.resolved_value, updated_at = CURRENT_TIMESTAMP
-                """,
-                (tip_hash, lookup_type, resolved_value)
-            )
-            
-            self.db_manager.execute_update(
-                """
-                UPDATE hash_lookup_unknown
-                SET resolved_at = %s, resolved_value = %s
-                WHERE tip_hash = %s AND lookup_type = %s
-                """,
-                (datetime.now(), resolved_value, tip_hash, lookup_type)
-            )
-            
-            if (tip_hash, lookup_type) in self._cache:
-                del self._cache[(tip_hash, lookup_type)]
-            
-            self._cache[(tip_hash, lookup_type)] = resolved_value
-            
-            logger.info(f"Resolved hash: {lookup_type}={tip_hash} -> {resolved_value}")
-            return True
-            
-        except Exception as e:
-            logger.error(f"Failed to resolve hash: {e}")
-            return False
-    
-    def get_unknown_hashes(self, resolved: bool = False) -> List[Dict[str, Any]]:
-        """
-        Get list of unknown hashes
-        
-        Args:
-            resolved: If True, get resolved hashes. If False, get unresolved hashes.
-            
-        Returns:
-            List of dictionaries with unknown hash information
-        """
-        if resolved:
-            query: str = """
-                SELECT tip_hash, lookup_type, first_encountered, resolved_at, resolved_value
-                FROM hash_lookup_unknown
-                WHERE resolved_at IS NOT NULL
-                ORDER BY resolved_at DESC
-            """
-        else:
-            query = """
-                SELECT tip_hash, lookup_type, first_encountered
-                FROM hash_lookup_unknown
-                WHERE resolved_at IS NULL
-                ORDER BY first_encountered DESC
-            """
-        
-        results: List[Dict[str, Any]] = self.db_manager.execute_query_dict(query)
-        return results
+        cached = self._cache.get(tip_hash)
+        return cached['lookup_type'] if cached else None
     
     def search_hash(self, search_value: str) -> List[Dict[str, Any]]:
         """
-        Search for hashes by resolved value
+        Search for hashes by resolved value (case-insensitive)
         
         Args:
-            search_value: Value to search for
+            search_value: Value to search for (partial match supported)
             
         Returns:
-            List of matching hash lookups
+            List of matching hash lookups with full details
         """
         results: List[Dict[str, Any]] = self.db_manager.execute_query_dict(
             """
-            SELECT tip_hash, lookup_type, resolved_value, created_at, updated_at
+            SELECT tip_hash, lookup_type, resolved_value, source_type, created_at, updated_at
             FROM hash_lookup
             WHERE resolved_value ILIKE %s
-            ORDER BY resolved_value
+            ORDER BY lookup_type, resolved_value
             """,
             (f"%{search_value}%",)
         )
         return results
     
-    def export_unknown_hashes(self, lookup_type: str, output_path: Path) -> int:
+    def get_by_type(self, lookup_type: str) -> List[Dict[str, Any]]:
         """
-        Export unknown hashes to CSV for resolution
+        Get all hashes of a specific lookup_type
         
         Args:
-            lookup_type: Type of lookup to export (vehicle, trailer, department, team)
-            output_path: Path for output CSV file
+            lookup_type: Type to filter by (vehicle, trailer, team, department, uhf)
             
         Returns:
-            Number of unknown hashes exported
+            List of hash lookups
         """
-        logger.info(f"Exporting unknown {lookup_type} hashes to {output_path}")
-        
-        unknown = self.db_manager.execute_query_dict(
+        results: List[Dict[str, Any]] = self.db_manager.execute_query_dict(
             """
-            SELECT 
-                tip_hash,
-                lookup_type,
-                first_encountered
-            FROM hash_lookup_unknown
+            SELECT tip_hash, resolved_value, source_type
+            FROM hash_lookup
             WHERE lookup_type = %s
-              AND resolved_at IS NULL
-            ORDER BY first_encountered DESC
+            ORDER BY resolved_value
             """,
             (lookup_type,)
         )
+        return results
+    
+    def get_by_source_type(self, source_type: str) -> List[Dict[str, Any]]:
+        """
+        Get all hashes of a specific source_type (e.g., PrimeMover, Trailer, Team)
         
-        if not unknown:
-            logger.info(f"No unknown {lookup_type} hashes found")
-            return 0
-        
-        with open(output_path, 'w', newline='', encoding='utf-8') as f:
-            writer = csv.writer(f)
-            writer.writerow(['TIP', 'VALUE'])
+        Args:
+            source_type: Noggin's original type classification
             
-            for row in unknown:
-                writer.writerow([
-                    row['tip_hash'],
-                    ''
-                ])
-        
-        logger.info(f"Exported {len(unknown)} unknown {lookup_type} hashes")
-        return len(unknown)
+        Returns:
+            List of hash lookups
+        """
+        results: List[Dict[str, Any]] = self.db_manager.execute_query_dict(
+            """
+            SELECT tip_hash, lookup_type, resolved_value
+            FROM hash_lookup
+            WHERE source_type = %s
+            ORDER BY resolved_value
+            """,
+            (source_type,)
+        )
+        return results
     
     def get_hash_statistics(self) -> Dict[str, Dict[str, int]]:
         """
-        Get statistics about known and unknown hashes
+        Get statistics about hash lookups grouped by type
         
         Returns:
-            Dictionary grouped by lookup type with counts
+            Dictionary with counts by lookup_type and source_type
         """
-        stats = {}
+        stats: Dict[str, Any] = {}
         
-        for lookup_type in ['vehicle', 'trailer', 'department', 'team']:
-            known_result = self.db_manager.execute_query_dict(
-                "SELECT COUNT(*) as count FROM hash_lookup WHERE lookup_type = %s",
-                (lookup_type,)
-            )
-            known_count = known_result[0]['count'] if known_result else 0
-            
-            unknown_result = self.db_manager.execute_query_dict(
-                "SELECT COUNT(*) as count FROM hash_lookup_unknown WHERE lookup_type = %s AND resolved_at IS NULL",
-                (lookup_type,)
-            )
-            unknown_count = unknown_result[0]['count'] if unknown_result else 0
-            
-            stats[lookup_type] = {
-                'known': known_count,
-                'unknown': unknown_count
-            }
+        # Count by lookup_type
+        type_results = self.db_manager.execute_query_dict(
+            """
+            SELECT lookup_type, COUNT(*) as count 
+            FROM hash_lookup 
+            GROUP BY lookup_type
+            ORDER BY lookup_type
+            """
+        )
+        
+        for row in type_results:
+            stats[row['lookup_type']] = {'count': row['count']}
+        
+        # Count by source_type
+        source_results = self.db_manager.execute_query_dict(
+            """
+            SELECT source_type, COUNT(*) as count
+            FROM hash_lookup
+            WHERE source_type IS NOT NULL
+            GROUP BY source_type
+            ORDER BY source_type
+            """
+        )
+        
+        stats['by_source_type'] = {row['source_type']: row['count'] for row in source_results}
+        
+        # Total
+        total_result = self.db_manager.execute_query_dict(
+            "SELECT COUNT(*) as count FROM hash_lookup"
+        )
+        stats['total'] = total_result[0]['count'] if total_result else 0
         
         return stats
     
-    def import_hashes_from_csv(self, lookup_type: str, csv_path: Path, source: str = 'manual_import') -> Tuple[int, int, int]:
+    def get_cache_stats(self) -> Dict[str, Any]:
         """
-        Import entity hashes from CSV file
-        
-        Args:
-            lookup_type: Type of lookup (vehicle, trailer, department, team)
-            csv_path: Path to CSV file
-            source: Source identifier for tracking
-            
-        Returns:
-            Tuple of (imported_count, duplicate_count, error_count)
-        """
-        if not csv_path.exists():
-            raise HashLookupError(f"CSV file not found: {csv_path}")
-        
-        df = pd.read_csv(csv_path, encoding='utf-8')
-        df.to_csv(csv_path, index=False, encoding='utf-8')
-        
-        imported_count = 0
-        duplicate_count = 0
-        error_count = 0
-        
-        logger.info(f"Importing {lookup_type} hashes from {csv_path}")
-        
-        try:
-            with open(csv_path, 'r', encoding='utf-8') as f:
-                reader = csv.DictReader(f)
-                
-                if 'TIP' not in reader.fieldnames or 'VALUE' not in reader.fieldnames:
-                    raise HashLookupError(f"CSV must contain 'TIP' and 'VALUE' columns. Found: {reader.fieldnames}")
-                
-                for row in reader:
-                    tip_hash = row['TIP'].strip()
-                    resolved_value = row['VALUE'].strip()
-                    
-                    if not tip_hash or not resolved_value:
-                        error_count += 1
-                        continue
-                    
-                    try:
-                        existing = self.db_manager.execute_query_dict(
-                            "SELECT tip_hash FROM hash_lookup WHERE tip_hash = %s AND lookup_type = %s",
-                            (tip_hash, lookup_type)
-                        )
-                        
-                        if existing:
-                            duplicate_count += 1
-                            self.db_manager.execute_update(
-                                """
-                                UPDATE hash_lookup 
-                                SET resolved_value = %s, updated_at = CURRENT_TIMESTAMP
-                                WHERE tip_hash = %s AND lookup_type = %s
-                                """,
-                                (resolved_value, tip_hash, lookup_type)
-                            )
-                        else:
-                            self.db_manager.execute_update(
-                                """
-                                INSERT INTO hash_lookup (tip_hash, lookup_type, resolved_value)
-                                VALUES (%s, %s, %s)
-                                """,
-                                (tip_hash, lookup_type, resolved_value)
-                            )
-                            imported_count += 1
-                        
-                        self._cache[(tip_hash, lookup_type)] = resolved_value
-                        
-                        self.db_manager.execute_update(
-                            """
-                            UPDATE hash_lookup_unknown
-                            SET resolved_at = CURRENT_TIMESTAMP,
-                                resolved_value = %s
-                            WHERE tip_hash = %s 
-                              AND lookup_type = %s
-                              AND resolved_at IS NULL
-                            """,
-                            (resolved_value, tip_hash, lookup_type)
-                        )
-                        
-                    except Exception as e:
-                        logger.warning(f"Could not import hash {tip_hash}: {e}")
-                        error_count += 1
-            
-            logger.info(f"Import complete: {imported_count} imported, {duplicate_count} duplicates, {error_count} errors")
-            return imported_count, duplicate_count, error_count
-            
-        except Exception as e:
-            logger.error(f"Import failed: {e}", exc_info=True)
-            raise HashLookupError(f"Import failed: {e}")
-    
-    def auto_resolve_unknown_hashes(self) -> int:
-        """
-        Automatically resolve unknown hashes that now exist in hash_lookup table
+        Get cache statistics for monitoring
         
         Returns:
-            Number of hashes resolved
+            Dictionary with cache status and size
         """
-        logger.info("Starting automatic hash resolution")
-        
-        query = """
-            UPDATE hash_lookup_unknown hlu
-            SET resolved_at = CURRENT_TIMESTAMP,
-                resolved_value = hl.resolved_value
-            FROM hash_lookup hl
-            WHERE hlu.tip_hash = hl.tip_hash
-              AND hlu.lookup_type = hl.lookup_type
-              AND hlu.resolved_at IS NULL
-            RETURNING hlu.tip_hash, hlu.lookup_type, hlu.resolved_value
-        """
-        
-        resolved = self.db_manager.execute_query_dict(query)
-        count = len(resolved)
-        
-        if count > 0:
-            logger.info(f"Auto-resolved {count} unknown hashes")
-            
-            for item in resolved:
-                logger.debug(f"Resolved {item['lookup_type']}: {item['tip_hash'][:16]}... -> {item['resolved_value']}")
-        else:
-            logger.info("No unknown hashes could be auto-resolved")
-        
-        return count
+        return {
+            'cache_loaded': self._cache_loaded,
+            'cache_size': len(self._cache),
+            'memory_entries': len(self._cache) if self._cache_loaded else 0
+        }
 
-    def update_lookup_type_if_unknown(self, tip_hash: str, context_key: str) -> None:
-        """
-        Update lookup_type from unknown to context key if still unknown
-        
-        Args:
-            tip_hash: Hash value
-            context_key: Key from JSON (team, vehicle, whichDepartmentDoesTheLoadBelongTo, trailer)
-        """
-        normalised_key = 'department' if context_key == 'whichDepartmentDoesTheLoadBelongTo' else context_key
-        
-        try:
-            self.db_manager.execute_update(
-                """
-                UPDATE hash_lookup
-                SET lookup_type = %s,
-                    updated_at = CURRENT_TIMESTAMP
-                WHERE tip_hash = %s
-                AND lookup_type = 'unknown'
-                """,
-                (normalised_key, tip_hash)
-            )
-            
-            if (tip_hash, 'unknown') in self._cache:
-                value = self._cache.pop((tip_hash, 'unknown'))
-                self._cache[(tip_hash, normalised_key)] = value
-                logger.debug(f"Updated lookup_type: {tip_hash[:16]}... from unknown to {normalised_key}")
-                
-        except Exception as e:
-            logger.debug(f"Could not update lookup_type for {tip_hash}: {e}")
 
 if __name__ == "__main__":
-    from .config import ConfigLoader
-    from .database import DatabaseConnectionManager
-    from .logger import LoggerManager
+    from config import ConfigLoader
+    from database import DatabaseConnectionManager
+    from logger import LoggerManager
     
     try:
         config: ConfigLoader = ConfigLoader(
-            '../config/base_config.ini',
-            '../config/load_compliance_check_config.ini'
+            'config/base_config.ini',
+            'config/load_compliance_check_config.ini'
         )
         
         logger_manager: LoggerManager = LoggerManager(config, script_name='test_hash_manager')
@@ -533,24 +282,31 @@ if __name__ == "__main__":
         db_manager: DatabaseConnectionManager = DatabaseConnectionManager(config)
         hash_manager: HashManager = HashManager(config, db_manager)
         
-        lookup_table_path: str = '../lookup_table.csv'
-        if Path(lookup_table_path).exists():
-            imported, skipped = hash_manager.migrate_lookup_table_from_csv(lookup_table_path)
-            print(f"✓ Migrated: {imported} imported, {skipped} skipped")
-        else:
-            print(f"✗ lookup_table.csv not found at {lookup_table_path}")
+        # Test lookup
+        test_hash = "02409bd3dd8355a53b3cef56e0eb6440b653bfad9579e7e602528db25cfbdc34"
+        result = hash_manager.lookup_hash(test_hash)
+        print(f"Lookup test: {test_hash[:16]}... -> {result}")
         
-        test_hash: str = "9d28a0b2a601d53eddcd10b433fd9716a172193e425cc964d263507be3be578e"
-        result: str = hash_manager.lookup_hash('vehicle', test_hash, 'test_tip', 'LCD-TEST')
-        print(f"✓ Lookup test: {result}")
+        # Test metadata lookup
+        metadata = hash_manager.lookup_hash_with_metadata(test_hash)
+        print(f"Metadata: {metadata}")
         
-        unknown: List[Dict[str, Any]] = hash_manager.get_unknown_hashes(resolved=False)
-        print(f"✓ Unknown hashes: {len(unknown)}")
+        # Test search
+        search_results = hash_manager.search_hash("MB")
+        print(f"Search 'MB': found {len(search_results)} results")
         
-        print("\n✓ Hash manager tests passed")
+        # Test statistics
+        stats = hash_manager.get_hash_statistics()
+        print(f"Statistics: {stats}")
+        
+        # Cache stats
+        cache_stats = hash_manager.get_cache_stats()
+        print(f"Cache stats: {cache_stats}")
+        
+        print("\nHash manager tests passed")
         
     except Exception as e:
-        print(f"✗ Error: {e}")
+        print(f"Error: {e}")
         import traceback
         traceback.print_exc()
     finally:
