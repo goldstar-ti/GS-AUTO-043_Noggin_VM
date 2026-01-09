@@ -2,9 +2,10 @@
 Hash Lookup Sync - Synchronise hash_lookup table from Noggin exports
 
 Reads asset and site CSV exports from Noggin and populates the hash_lookup table.
-Supports both local file processing and SFTP download.
+Supports local file processing, pending folder scanning, and SFTP download.
 
 Usage:
+    python hash_lookup_sync.py --process-pending
     python hash_lookup_sync.py --asset-file /path/to/asset.csv --site-file /path/to/site.csv
     python hash_lookup_sync.py --sftp
     python hash_lookup_sync.py --stats
@@ -15,7 +16,7 @@ import argparse
 import logging
 import shutil
 import sys
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
 from typing import Optional
@@ -33,11 +34,7 @@ class SyncStatistics:
     sites_processed: int = 0
     sites_skipped: int = 0
     total_inserted: int = 0
-    errors: list = None
-    
-    def __post_init__(self):
-        if self.errors is None:
-            self.errors = []
+    errors: list = field(default_factory=list)
 
 
 # Mapping from Noggin assetType to lookup_type
@@ -50,7 +47,8 @@ ASSET_TYPE_MAPPING: dict[str, str] = {
     'TRAILER': 'trailer',
     'DROPDECK': 'trailer',
     'DOLLY': 'trailer',
-    'uhf': 'uhf',
+    'UHF': 'uhf',
+    'SKEL': 'trailer',
 }
 
 # Site name patterns that indicate department vs team
@@ -63,44 +61,52 @@ DEPARTMENT_PATTERNS: tuple[str, ...] = (
 )
 
 
+def get_default_paths() -> dict[str, Path]:
+    """
+    Get default paths based on script location.
+    Assumes script is in /home/noggin_admin/scripts/ and etl folder is a sibling.
+    """
+    script_dir = Path(__file__).parent.resolve()
+    etl_dir = script_dir / 'etl'
+    
+    return {
+        'hash_sync_pending': etl_dir / 'hash_sync' / 'pending',
+        'hash_sync_processed': etl_dir / 'hash_sync' / 'processed',
+        'hash_sync_error': etl_dir / 'hash_sync' / 'error',
+        'sftp_downloads': etl_dir / 'sftp' / 'downloads',
+        'sftp_archive': etl_dir / 'sftp' / 'archive',
+        'log': etl_dir / 'log',
+    }
+
+
 def determine_asset_lookup_type(asset_type: Optional[str]) -> str:
     """
-    Determine lookup_type from Noggin assetType
+    Determine lookup_type from Noggin assetType.
     
-    Args:
-        asset_type: The assetType value from Noggin export
-        
-    Returns:
-        Normalised lookup_type (vehicle, trailer, uhf, or unknown)
+    The asset_type parameter comes directly from Noggin's export and can be values
+    like 'PRIME MOVER', 'TRAILER', 'uhf', etc. This function normalises these to
+    broader categories used for filtering: vehicle, trailer, uhf, or unknown.
     """
     if not asset_type or pd.isna(asset_type):
         return 'unknown'
     
-    asset_type_clean = str(asset_type).strip().upper()
-    
-    # Handle UHF special case (lowercase in source)
-    if asset_type.strip().lower() == 'uhf':
-        return 'uhf'
-    
-    return ASSET_TYPE_MAPPING.get(asset_type_clean, 'unknown')
+    asset_type_upper = str(asset_type).strip().upper()
+    return ASSET_TYPE_MAPPING.get(asset_type_upper, 'unknown')
 
 
 def format_source_type(raw_type: Optional[str]) -> str:
     """
-    Format source_type as CamelCase
+    Format source_type as CamelCase.
     
-    Args:
-        raw_type: Raw type value from Noggin (e.g., 'PRIME MOVER', 'businessUnit')
-        
-    Returns:
-        CamelCase formatted string (e.g., 'PrimeMover', 'BusinessUnit')
+    Converts Noggin's raw type values (e.g., 'PRIME MOVER', 'businessUnit') into
+    consistent CamelCase format (e.g., 'PrimeMover', 'BusinessUnit') for storage.
     """
     if not raw_type or pd.isna(raw_type):
         return 'Unknown'
     
     raw_str = str(raw_type).strip()
     
-    # Handle already CamelCase values (e.g., businessUnit, virtualForReporting)
+    # Handle already camelCase values (e.g., businessUnit, virtualForReporting)
     if ' ' not in raw_str and raw_str[0].islower():
         return raw_str[0].upper() + raw_str[1:]
     
@@ -111,14 +117,12 @@ def format_source_type(raw_type: Optional[str]) -> str:
 
 def determine_site_lookup_type(site_name: str, site_type: Optional[str]) -> str:
     """
-    Determine lookup_type from site name patterns and siteType
+    Determine lookup_type from site name patterns and siteType.
     
-    Args:
-        site_name: The siteName value from Noggin export
-        site_type: The siteType value from Noggin export
-        
-    Returns:
-        Either 'team' or 'department'
+    Sites with names containing patterns like '- Drivers' or '- Admin' are classified
+    as departments. Sites with siteType 'team' that don't match department patterns
+    are classified as teams. Everything else (businessUnit, virtualForReporting) 
+    becomes department.
     """
     site_name_str = str(site_name) if site_name else ''
     
@@ -127,9 +131,8 @@ def determine_site_lookup_type(site_name: str, site_type: Optional[str]) -> str:
         if pattern in site_name_str:
             return 'department'
     
-    # siteType 'team' maps to lookup_type 'team'
+    # siteType 'team' maps to lookup_type 'team' unless name suggests department
     if site_type and str(site_type).strip().lower() == 'team':
-        # But check name patterns first (some 'team' siteTypes are actually departments)
         if any(p in site_name_str for p in DEPARTMENT_PATTERNS):
             return 'department'
         return 'team'
@@ -140,14 +143,9 @@ def determine_site_lookup_type(site_name: str, site_type: Optional[str]) -> str:
 
 def format_site_resolved_value(goldstar_id: Optional[str], site_name: Optional[str]) -> str:
     """
-    Format resolved_value for sites as '<goldstarId> - <siteName>'
+    Format resolved_value for sites as '<goldstarId> - <siteName>'.
     
-    Args:
-        goldstar_id: The goldstarId value from Noggin export
-        site_name: The siteName value from Noggin export
-        
-    Returns:
-        Formatted string or just site_name if goldstar_id is missing
+    If goldstar_id is missing or empty, returns just the site name.
     """
     name = str(site_name).strip() if site_name and not pd.isna(site_name) else 'Unknown'
     
@@ -158,22 +156,45 @@ def format_site_resolved_value(goldstar_id: Optional[str], site_name: Optional[s
     return name
 
 
+def detect_file_type(csv_path: Path) -> Optional[str]:
+    """
+    Detect whether a CSV file is an asset export or site export.
+    
+    Reads the header row and looks for distinctive columns:
+    - 'assetType' or 'assetName' indicates asset export
+    - 'siteType' or 'siteName' indicates site export
+    
+    Returns 'asset', 'site', or None if indeterminate.
+    """
+    try:
+        df = pd.read_csv(csv_path, nrows=0, encoding='utf-8-sig')
+        columns = set(df.columns)
+        
+        # Asset exports have assetType and/or assetName columns
+        if 'assetType' in columns or 'assetName' in columns:
+            return 'asset'
+        
+        # Site exports have siteType and/or siteName columns
+        if 'siteType' in columns or 'siteName' in columns:
+            return 'site'
+        
+        logger.warning(f"Could not determine file type for {csv_path.name}. Columns: {columns}")
+        return None
+        
+    except Exception as e:
+        logger.error(f"Error reading {csv_path}: {e}")
+        return None
+
+
 def load_asset_export(csv_path: Path) -> pd.DataFrame:
     """
-    Load and validate asset export CSV
+    Load and validate asset export CSV.
     
-    Args:
-        csv_path: Path to asset export CSV
-        
-    Returns:
-        DataFrame with asset data
-        
-    Raises:
-        ValueError if required columns are missing
+    Expects columns: nogginId, assetName, assetType (at minimum).
     """
     logger.info(f"Loading asset export from {csv_path}")
     
-    df = pd.read_csv(csv_path, encoding='utf-8-sig')  # utf-8-sig handles BOM
+    df = pd.read_csv(csv_path, encoding='utf-8-sig')
     
     required_columns = ['nogginId', 'assetName', 'assetType']
     missing = [col for col in required_columns if col not in df.columns]
@@ -187,16 +208,9 @@ def load_asset_export(csv_path: Path) -> pd.DataFrame:
 
 def load_site_export(csv_path: Path) -> pd.DataFrame:
     """
-    Load and validate site export CSV
+    Load and validate site export CSV.
     
-    Args:
-        csv_path: Path to site export CSV
-        
-    Returns:
-        DataFrame with site data
-        
-    Raises:
-        ValueError if required columns are missing
+    Expects columns: nogginId, siteName, goldstarId, siteType (at minimum).
     """
     logger.info(f"Loading site export from {csv_path}")
     
@@ -214,13 +228,9 @@ def load_site_export(csv_path: Path) -> pd.DataFrame:
 
 def process_assets(df: pd.DataFrame) -> list[tuple[str, str, str, str]]:
     """
-    Process asset DataFrame into hash_lookup records
+    Process asset DataFrame into hash_lookup records.
     
-    Args:
-        df: Asset DataFrame
-        
-    Returns:
-        List of (tip_hash, lookup_type, resolved_value, source_type) tuples
+    Returns list of (tip_hash, lookup_type, resolved_value, source_type) tuples.
     """
     records = []
     skipped = 0
@@ -230,14 +240,13 @@ def process_assets(df: pd.DataFrame) -> list[tuple[str, str, str, str]]:
         asset_name = row.get('assetName')
         asset_type = row.get('assetType')
         
-        # Skip if no hash
         if not tip_hash or pd.isna(tip_hash):
             skipped += 1
             continue
         
         tip_hash = str(tip_hash).strip()
         
-        # Skip if no asset name (but keep expired status records)
+        # Keep expired/empty name records with 'Unknown' as resolved value
         if not asset_name or pd.isna(asset_name):
             asset_name = 'Unknown'
             logger.debug(f"Asset {tip_hash[:16]}... has no name, using 'Unknown'")
@@ -257,13 +266,9 @@ def process_assets(df: pd.DataFrame) -> list[tuple[str, str, str, str]]:
 
 def process_sites(df: pd.DataFrame) -> list[tuple[str, str, str, str]]:
     """
-    Process site DataFrame into hash_lookup records
+    Process site DataFrame into hash_lookup records.
     
-    Args:
-        df: Site DataFrame
-        
-    Returns:
-        List of (tip_hash, lookup_type, resolved_value, source_type) tuples
+    Returns list of (tip_hash, lookup_type, resolved_value, source_type) tuples.
     """
     records = []
     skipped = 0
@@ -274,14 +279,12 @@ def process_sites(df: pd.DataFrame) -> list[tuple[str, str, str, str]]:
         goldstar_id = row.get('goldstarId')
         site_type = row.get('siteType')
         
-        # Skip if no hash
         if not tip_hash or pd.isna(tip_hash):
             skipped += 1
             continue
         
         tip_hash = str(tip_hash).strip()
         
-        # Skip if no site name
         if not site_name or pd.isna(site_name):
             skipped += 1
             logger.debug(f"Site {tip_hash[:16]}... has no name, skipping")
@@ -303,15 +306,10 @@ def sync_to_database(
     truncate_first: bool = True
 ) -> int:
     """
-    Sync records to hash_lookup table
+    Sync records to hash_lookup table.
     
-    Args:
-        db_manager: Database connection manager
-        records: List of (tip_hash, lookup_type, resolved_value, source_type) tuples
-        truncate_first: If True, truncate table before insert
-        
-    Returns:
-        Number of records inserted
+    When truncate_first is True (default), clears the table before inserting.
+    This ensures the table exactly matches the authoritative source files.
     """
     if truncate_first:
         logger.info("Truncating hash_lookup table")
@@ -345,15 +343,57 @@ def sync_to_database(
     return inserted
 
 
-def download_from_sftp(config: 'ConfigLoader') -> tuple[Optional[Path], Optional[Path]]:
+def scan_pending_folder(pending_path: Path) -> tuple[Optional[Path], Optional[Path]]:
     """
-    Download latest export files from SFTP
+    Scan pending folder for asset and site CSV files.
     
-    Args:
-        config: Configuration loader
+    Auto-detects file types by examining headers. Returns tuple of 
+    (asset_file, site_file). Either or both may be None if not found.
+    """
+    if not pending_path.exists():
+        logger.warning(f"Pending folder does not exist: {pending_path}")
+        return None, None
+    
+    csv_files = list(pending_path.glob('*.csv'))
+    
+    if not csv_files:
+        logger.info(f"No CSV files found in {pending_path}")
+        return None, None
+    
+    logger.info(f"Found {len(csv_files)} CSV file(s) in pending folder")
+    
+    asset_file: Optional[Path] = None
+    site_file: Optional[Path] = None
+    
+    for csv_path in csv_files:
+        file_type = detect_file_type(csv_path)
         
-    Returns:
-        Tuple of (asset_file_path, site_file_path) or (None, None) on failure
+        if file_type == 'asset':
+            if asset_file:
+                logger.warning(f"Multiple asset files found. Using {asset_file.name}, ignoring {csv_path.name}")
+            else:
+                asset_file = csv_path
+                logger.info(f"Detected asset file: {csv_path.name}")
+                
+        elif file_type == 'site':
+            if site_file:
+                logger.warning(f"Multiple site files found. Using {site_file.name}, ignoring {csv_path.name}")
+            else:
+                site_file = csv_path
+                logger.info(f"Detected site file: {csv_path.name}")
+                
+        else:
+            logger.warning(f"Unknown file type, skipping: {csv_path.name}")
+    
+    return asset_file, site_file
+
+
+def download_from_sftp(config: 'ConfigLoader', paths: dict[str, Path]) -> tuple[Optional[Path], Optional[Path]]:
+    """
+    Download latest export files from SFTP.
+    
+    Connects to Noggin's SFTP server, downloads the two most recent CSV files,
+    and returns paths to the downloaded asset and site files.
     """
     try:
         import paramiko
@@ -366,8 +406,7 @@ def download_from_sftp(config: 'ConfigLoader') -> tuple[Optional[Path], Optional
     username = config.get('sftp', 'username')
     key_path = config.get('sftp', 'private_key_path')
     remote_path = config.get('sftp', 'remote_path')
-    local_path = Path(config.get('sftp', 'local_download_path'))
-    file_pattern = config.get('sftp', 'file_pattern', fallback='exported-file-*.csv')
+    local_path = paths['sftp_downloads']
     
     local_path.mkdir(parents=True, exist_ok=True)
     
@@ -385,7 +424,6 @@ def download_from_sftp(config: 'ConfigLoader') -> tuple[Optional[Path], Optional
         transport.connect(username=username, pkey=key)
         sftp = paramiko.SFTPClient.from_transport(transport)
         
-        # List files in remote directory
         files = sftp.listdir(remote_path)
         csv_files = [f for f in files if f.startswith('exported-file-') and f.endswith('.csv')]
         
@@ -401,7 +439,6 @@ def download_from_sftp(config: 'ConfigLoader') -> tuple[Optional[Path], Optional
         
         csv_files_with_time.sort(key=lambda x: x[1], reverse=True)
         
-        # Download the two most recent files
         downloaded = []
         for filename, _ in csv_files_with_time[:2]:
             remote_file = f"{remote_path}/{filename}"
@@ -413,15 +450,15 @@ def download_from_sftp(config: 'ConfigLoader') -> tuple[Optional[Path], Optional
         
         sftp.close()
         
-        # Determine which file is asset vs site by checking headers
+        # Detect file types
         asset_file = None
         site_file = None
         
         for file_path in downloaded:
-            df = pd.read_csv(file_path, nrows=0, encoding='utf-8-sig')
-            if 'assetType' in df.columns:
+            file_type = detect_file_type(file_path)
+            if file_type == 'asset':
                 asset_file = file_path
-            elif 'siteType' in df.columns:
+            elif file_type == 'site':
                 site_file = file_path
         
         if not asset_file or not site_file:
@@ -443,14 +480,7 @@ def download_from_sftp(config: 'ConfigLoader') -> tuple[Optional[Path], Optional
 
 def archive_file(file_path: Path, archive_folder: Path) -> Path:
     """
-    Move processed file to archive folder with timestamp
-    
-    Args:
-        file_path: File to archive
-        archive_folder: Destination folder
-        
-    Returns:
-        New path of archived file
+    Move processed file to archive folder with timestamp suffix.
     """
     archive_folder.mkdir(parents=True, exist_ok=True)
     
@@ -464,19 +494,28 @@ def archive_file(file_path: Path, archive_folder: Path) -> Path:
     return dest_path
 
 
+def move_to_error(file_path: Path, error_folder: Path) -> Path:
+    """
+    Move failed file to error folder with timestamp suffix.
+    """
+    error_folder.mkdir(parents=True, exist_ok=True)
+    
+    timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+    new_name = f"{file_path.stem}_{timestamp}{file_path.suffix}"
+    dest_path = error_folder / new_name
+    
+    shutil.move(str(file_path), str(dest_path))
+    logger.warning(f"Moved {file_path.name} to error folder: {dest_path}")
+    
+    return dest_path
+
+
 def get_statistics(db_manager: 'DatabaseConnectionManager') -> dict:
     """
-    Get current hash_lookup statistics
-    
-    Args:
-        db_manager: Database connection manager
-        
-    Returns:
-        Dictionary of statistics
+    Get current hash_lookup statistics.
     """
     stats = {}
     
-    # Count by lookup_type
     type_counts = db_manager.execute_query_dict("""
         SELECT lookup_type, COUNT(*) as count
         FROM hash_lookup
@@ -487,7 +526,6 @@ def get_statistics(db_manager: 'DatabaseConnectionManager') -> dict:
     for row in type_counts:
         stats[row['lookup_type']] = row['count']
     
-    # Count by source_type
     source_counts = db_manager.execute_query_dict("""
         SELECT source_type, COUNT(*) as count
         FROM hash_lookup
@@ -498,7 +536,6 @@ def get_statistics(db_manager: 'DatabaseConnectionManager') -> dict:
     
     stats['by_source_type'] = {row['source_type']: row['count'] for row in source_counts}
     
-    # Total count
     total = db_manager.execute_query_dict("SELECT COUNT(*) as count FROM hash_lookup")
     stats['total'] = total[0]['count'] if total else 0
     
@@ -506,7 +543,7 @@ def get_statistics(db_manager: 'DatabaseConnectionManager') -> dict:
 
 
 def print_statistics(stats: dict) -> None:
-    """Print formatted statistics"""
+    """Print formatted statistics to console."""
     print("\n" + "=" * 60)
     print("HASH LOOKUP STATISTICS")
     print("=" * 60)
@@ -530,26 +567,31 @@ def print_statistics(stats: dict) -> None:
 
 
 def main() -> int:
-    """Main entry point"""
+    """Main entry point."""
     parser = argparse.ArgumentParser(
         description='Synchronise hash_lookup table from Noggin exports',
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
-    # Sync from local files
+    # Process files from pending folder (auto-detects asset vs site)
+    python hash_lookup_sync.py --process-pending
+    
+    # Sync from specific files
     python hash_lookup_sync.py --asset-file assets.csv --site-file sites.csv
     
-    # Sync from SFTP
+    # Download and sync from SFTP
     python hash_lookup_sync.py --sftp
     
-    # Show current statistics
+    # Show current statistics only
     python hash_lookup_sync.py --stats
     
     # Dry run (no database changes)
-    python hash_lookup_sync.py --asset-file assets.csv --site-file sites.csv --dry-run
+    python hash_lookup_sync.py --process-pending --dry-run
         """
     )
     
+    parser.add_argument('--process-pending', action='store_true',
+                       help='Process files from pending folder with auto-detection')
     parser.add_argument('--asset-file', type=Path, help='Path to asset export CSV')
     parser.add_argument('--site-file', type=Path, help='Path to site export CSV')
     parser.add_argument('--sftp', action='store_true', help='Download files from SFTP')
@@ -561,9 +603,12 @@ Examples:
     
     args = parser.parse_args()
     
-    # Import here to avoid circular imports and allow --help without deps
+    # Import dependencies here to allow --help without loading modules
     sys.path.insert(0, str(Path(__file__).parent))
     from common import ConfigLoader, LoggerManager, DatabaseConnectionManager
+    
+    # Get default paths based on script location
+    paths = get_default_paths()
     
     # Load configuration
     config = ConfigLoader(str(args.config))
@@ -585,13 +630,31 @@ Examples:
         # Determine file sources
         asset_file: Optional[Path] = None
         site_file: Optional[Path] = None
+        source_mode: str = ''
         
-        if args.sftp:
-            asset_file, site_file = download_from_sftp(config)
+        # Track records separately for reporting
+        asset_records: list = []
+        site_records: list = []
+        
+        if args.process_pending:
+            source_mode = 'pending'
+            asset_file, site_file = scan_pending_folder(paths['hash_sync_pending'])
+            
+            if not asset_file and not site_file:
+                print("\nNo files found in pending folder")
+                print(f"  Location: {paths['hash_sync_pending']}")
+                print("\nPlace asset and site export CSVs in the pending folder and run again.")
+                return 0
+                
+        elif args.sftp:
+            source_mode = 'sftp'
+            asset_file, site_file = download_from_sftp(config, paths)
             if not asset_file or not site_file:
                 logger.error("Failed to download files from SFTP")
                 return 1
+                
         elif args.asset_file and args.site_file:
+            source_mode = 'manual'
             asset_file = args.asset_file
             site_file = args.site_file
             
@@ -603,19 +666,41 @@ Examples:
                 return 1
         else:
             parser.print_help()
-            print("\nError: Specify either --sftp or both --asset-file and --site-file")
+            print("\nError: Specify --process-pending, --sftp, or both --asset-file and --site-file")
+            return 1
+        
+        # Validate we have at least one file
+        if not asset_file and not site_file:
+            logger.error("No valid files to process")
             return 1
         
         # Load and process files
         logger.info("Starting hash lookup sync")
         
-        asset_df = load_asset_export(asset_file)
-        site_df = load_site_export(site_file)
+        all_records = []
+        processed_files = []
         
-        asset_records = process_assets(asset_df)
-        site_records = process_sites(site_df)
+        if asset_file:
+            try:
+                asset_df = load_asset_export(asset_file)
+                asset_records = process_assets(asset_df)
+                all_records.extend(asset_records)
+                processed_files.append(('asset', asset_file, True))
+                logger.info(f"Asset records: {len(asset_records)}")
+            except Exception as e:
+                logger.error(f"Failed to process asset file: {e}")
+                processed_files.append(('asset', asset_file, False))
         
-        all_records = asset_records + site_records
+        if site_file:
+            try:
+                site_df = load_site_export(site_file)
+                site_records = process_sites(site_df)
+                all_records.extend(site_records)
+                processed_files.append(('site', site_file, True))
+                logger.info(f"Site records: {len(site_records)}")
+            except Exception as e:
+                logger.error(f"Failed to process site file: {e}")
+                processed_files.append(('site', site_file, False))
         
         logger.info(f"Total records to sync: {len(all_records)}")
         
@@ -627,22 +712,26 @@ Examples:
             print(f"  Sites: {len(site_records)}")
             print(f"  Total: {len(all_records)}")
         else:
-            inserted = sync_to_database(db_manager, all_records, truncate_first=True)
-            
-            print(f"\nSync complete:")
-            print(f"  Assets processed: {len(asset_records)}")
-            print(f"  Sites processed: {len(site_records)}")
-            print(f"  Total inserted: {inserted}")
+            if all_records:
+                inserted = sync_to_database(db_manager, all_records, truncate_first=True)
+                
+                print(f"\nSync complete:")
+                print(f"  Assets processed: {len(asset_records)}")
+                print(f"  Sites processed: {len(site_records)}")
+                print(f"  Total inserted: {inserted}")
+            else:
+                print("\nNo records to sync")
         
-        # Archive files
+        # Move processed files to appropriate folders
         if not args.no_archive and not args.dry_run:
-            archive_path = Path(config.get('sftp', 'archive_path', 
-                                          fallback='/mnt/data/noggin/sftp_archive'))
-            archive_file(asset_file, archive_path)
-            archive_file(site_file, archive_path)
+            for file_type, file_path, success in processed_files:
+                if success:
+                    archive_file(file_path, paths['hash_sync_processed'])
+                else:
+                    move_to_error(file_path, paths['hash_sync_error'])
         
         # Show final statistics
-        if not args.dry_run:
+        if not args.dry_run and all_records:
             stats = get_statistics(db_manager)
             print_statistics(stats)
         
