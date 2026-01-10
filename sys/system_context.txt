@@ -1,0 +1,70 @@
+==========================================
+ SYSTEM CONTEXT REPORT
+==========================================
+Generated on: Sat Jan 10 01:07:53 PM AWST 2026
+
+### 1. OPERATING SYSTEM DETAILS
+--------------------------------
+PRETTY_NAME="Ubuntu 24.04.3 LTS"
+VERSION_ID="24.04"
+Kernel: Linux 6.8.0-90-generic
+Architecture: x86_64
+
+### 2. PYTHON ENVIRONMENT
+--------------------------------
+Python Executable: /home/noggin_admin/scripts/.venv/bin/python3
+Python Version: Python 3.12.3
+
+### 3. INSTALLED PACKAGES (pip freeze)
+--------------------------------
+blinker==1.9.0
+certifi==2025.10.5
+charset-normalizer==3.4.4
+click==8.3.0
+Flask==3.1.2
+Flask-HTTPAuth==4.8.0
+gunicorn==23.0.0
+idna==3.11
+itsdangerous==2.2.0
+Jinja2==3.1.6
+markdown-it-py==4.0.0
+MarkupSafe==3.0.3
+mdurl==0.1.2
+mypy==1.18.2
+mypy_extensions==1.1.0
+numpy==2.3.4
+packaging==25.0
+pandas==2.3.3
+pathspec==0.12.1
+psycopg2==2.9.11
+psycopg2-binary==2.9.11
+Pygments==2.19.2
+python-dateutil==2.9.0.post0
+pytz==2025.2
+requests==2.32.5
+rich==14.2.0
+six==1.17.0
+tabulate==0.9.0
+typesplainer==0.2.6
+typing_extensions==4.15.0
+tzdata==2025.2
+urllib3==2.5.0
+Werkzeug==3.1.3
+
+### 4. RELEVANT ENVIRONMENT VARIABLES
+--------------------------------
+BUNDLED_DEBUGPY_PATH=/home/noggin_admin/.vscode-server/extensions/ms-python.debugpy-2025.16.0-linux-x64/bundled/libs/debugpy
+LANG=en_US.UTF-8
+PATH=/home/noggin_admin/scripts/.venv/bin:/home/noggin_admin/.vscode-server/data/User/globalStorage/github.copilot-chat/debugCommand:/home/noggin_admin/.vscode-server/data/User/globalStorage/github.copilot-chat/copilotCli:/home/noggin_admin/.vscode-server/bin/994fd12f8d3a5aa16f17d42c041e5809167e845a/bin/remote-cli:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/games:/usr/local/games:/snap/bin:/home/noggin_admin/.vscode-server/extensions/ms-python.debugpy-2025.16.0-linux-x64/bundled/scripts/noConfigScripts
+PYTHON_BASIC_REPL=1
+PYTHONSTARTUP=/home/noggin_admin/.vscode-server/data/User/workspaceStorage/c4823f721e933cca932dc797f76bc9fd-1/ms-python.python/pythonrc.py
+SHELL=/usr/bin/zsh
+VIRTUAL_ENV_DISABLE_PROMPT=1
+VIRTUAL_ENV=/home/noggin_admin/scripts/.venv
+VSCODE_PYTHON_AUTOACTIVATE_GUARD=1
+VSCODE_SHELL_ENV_REPORTING=PATH,VIRTUAL_ENV,HOME,SHELL,PWD
+
+### 5. HARDWARE RESOURCE OVERVIEW
+--------------------------------
+Total Memory: 3.7Gi
+Disk Space (/): 48G Total, 33G Free

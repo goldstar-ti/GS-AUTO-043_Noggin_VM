@@ -47,6 +47,7 @@ from .csv_importer import CSVImporter, CSVImportError
 from .rate_limiter import CircuitBreaker, CircuitBreakerError, CircuitState
 from .object_types import ObjectTypeConfig
 
+
 ### GLOBAL CONSTANTS
 UNKNOWN_TEXT = "UNKNOWN"
 
