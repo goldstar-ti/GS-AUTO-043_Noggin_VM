@@ -10,6 +10,10 @@ Key features:
 - Extracts preview fields for web search interface
 - Batch inserts for efficiency
 - Sets status to 'csv_imported' to distinguish from API failures
+- Detects if value is hash (64-char hex) or resolved text
+- Looks up hashes in hash_lookup table
+- Stores both hash and resolved value in appropriate columns
+- Falls back to default preview fields if INI section missing
 
 Usage:
     from common.csv_importer import CSVImporter
