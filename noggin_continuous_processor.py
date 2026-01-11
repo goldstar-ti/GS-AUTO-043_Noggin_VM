@@ -17,6 +17,7 @@ from pathlib import Path
 from typing import Dict, Any
 
 from common import ConfigLoader, LoggerManager, DatabaseConnectionManager, CSVImporter, HashManager
+from sftp_download_tips import run_sftp_download
 
 logger: logging.Logger = logging.getLogger(__name__)
 
@@ -171,9 +172,56 @@ def get_processing_statistics(db_manager: DatabaseConnectionManager) -> Dict[str
         logger.error(f"Failed to get processing statistics: {e}")
         return {}
 
+def run_sftp_download_cycle(config, db_manager) -> dict:
+    """
+    Execute SFTP download cycle
+    
+    Args:
+        config: ConfigLoader instance
+        db_manager: DatabaseConnectionManager instance
+        
+    Returns:
+        Dictionary with download statistics
+    """
+    from sftp_download_tips import run_sftp_download
+    
+    logger.info("Starting SFTP download cycle...")
+    
+    try:
+        result = run_sftp_download(
+            sftp_config_path='config/sftp_config.ini',
+            base_config=config,
+            db_manager=db_manager
+        )
+        
+        if result['status'] == 'success':
+            logger.info(
+                f"SFTP download cycle complete: "
+                f"{result['total_inserted']} TIPs inserted, "
+                f"{result['total_duplicates']} duplicates skipped"
+            )
+        elif result['status'] == 'no_files':
+            logger.info("SFTP download cycle complete: no new files on server")
+        else:
+            logger.warning(f"SFTP download cycle completed with status: {result['status']}")
+        
+        return result
+        
+    except Exception as e:
+        logger.error(f"SFTP download cycle failed: {e}", exc_info=True)
+        return {'status': 'error', 'total_inserted': 0, 'total_duplicates': 0, 'total_errors': 1}
 
 def main() -> int:
     """Main entry point for continuous processor"""
+
+    global shutdown_requested
+    shutdown_requested = False
+
+    def signal_handler(signum: int, frame: Any) -> None:
+        """Handle shutdown signals gracefully"""
+        nonlocal shutdown_requested
+        logger.info(f"Received signal {signum}. Initiating graceful shutdown...")
+        shutdown_requested = True
     
     signal.signal(signal.SIGINT, signal_handler)
     signal.signal(signal.SIGTERM, signal_handler)
@@ -189,6 +237,7 @@ def main() -> int:
         
         cycle_sleep = config.getint('continuous', 'cycle_sleep_seconds')
         csv_import_frequency = config.getint('continuous', 'import_csv_every_n_cycles')
+        sftp_download_frequency = config.getint('continuous', 'sftp_download_every_n_cycles', fallback=6)
         
         # New configuration for hash resolution
         hash_resolution_frequency = config.getint('continuous', 'resolve_hashes_every_n_cycles', fallback=10)
@@ -198,6 +247,7 @@ def main() -> int:
         logger.info(f"  - Cycle sleep: {cycle_sleep} seconds")
         logger.info(f"  - CSV import frequency: every {csv_import_frequency} cycles")
         logger.info(f"  - Hash resolution frequency: every {hash_resolution_frequency} cycles")
+        logger.info(f"  - SFTP download frequency: every {sftp_download_frequency} cycles")
         
         db_manager = DatabaseConnectionManager(config)
         
@@ -210,6 +260,13 @@ def main() -> int:
             logger.info(f"\n{'='*80}")
             logger.info(f"CYCLE {cycle_count}")
             logger.info(f"{'='*80}")
+
+            # Run SFTP download cycle (every N cycles)
+            if cycle_count % sftp_download_frequency == 0:
+                sftp_result = run_sftp_download_cycle(config, db_manager)
+                # Optionally track statistics
+                if sftp_result.get('total_inserted', 0) > 0:
+                    logger.info(f"SFTP: Added {sftp_result['total_inserted']} new TIPs to queue")
             
             # Run CSV import cycle (every N cycles)
             if cycle_count % csv_import_frequency == 0:
@@ -221,6 +278,7 @@ def main() -> int:
                 resolved = run_hash_resolution_cycle(config, db_manager)
                 if resolved > 0:
                     logger.info(f"Resolved {resolved} previously unknown hashes")
+
             
             # Run main processing cycle
             cycle_result = run_single_processing_cycle(config, db_manager)
@@ -249,7 +307,13 @@ def main() -> int:
         logger.info(f"Total cycles executed: {cycle_count}")
         logger.info(f"Total records processed: {total_processed}")
         logger.info("="*80)
-        
+
+        # Sleep before next cycle
+        if not shutdown_requested:
+            logger.info(f"Sleeping {cycle_sleep}s before next cycle...")
+            import time
+            time.sleep(cycle_sleep)        
+            
         return 0
         
     except KeyboardInterrupt:

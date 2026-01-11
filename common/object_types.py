@@ -78,16 +78,12 @@ OBJECT_TYPES: Dict[str, ObjectTypeConfig] = {
     )
 }
 
-# Backward compatibility alias: LCC -> LCD
-# Remove this after all code has been updated
-OBJECT_TYPES['LCC'] = OBJECT_TYPES['LCD']
-
 # Build reverse lookup: id_column -> ObjectTypeConfig
 ID_COLUMN_TO_TYPE: Dict[str, ObjectTypeConfig] = {
     config.id_column: config for config in OBJECT_TYPES.values()
 }
 
-# Also support lowercase lookups
+# lowercase lookup for case-insensitive matching
 ID_COLUMN_TO_TYPE_LOWER: Dict[str, ObjectTypeConfig] = {
     config.id_column.lower(): config for config in OBJECT_TYPES.values()
 }

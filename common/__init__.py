@@ -52,17 +52,39 @@ from .object_types import ObjectTypeConfig
 UNKNOWN_TEXT = "UNKNOWN"
 
 __all__ = [
+    # Config
     'ConfigLoader',
     'ConfigurationError',
+    
+    # Logger
     'LoggerManager',
+    
+    # Database
     'DatabaseConnectionManager',
     'DatabaseConnectionError',
+    
+    # Hash Manager
     'HashManager',
     'HashLookupError',
+    
+    # CSV Importer
     'CSVImporter',
     'CSVImportError',
+    
+    # Rate Limiter / Circuit Breaker
     'CircuitBreaker',
     'CircuitBreakerError',
     'CircuitState',
-    'ObjectTypeConfig'
+    
+    # Object Types
+    'ObjectTypeConfig',
+    'OBJECT_TYPES',
+    'detect_object_type_from_headers',
+    'detect_object_type',
+    'get_object_type_by_abbreviation',
+    'get_object_type_by_full_name',
+    'get_all_object_types',
+    'get_id_column_for_type',
+    'find_column_index',
+    'extract_row_data',
 ]

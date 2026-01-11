@@ -324,7 +324,7 @@ class DatabaseRecordManager:
         """Get the inspection ID column name for this object type"""
         # Map abbreviation to ID column
         id_columns = {
-            'LCC': 'lcd_inspection_id',
+            'LCD': 'lcd_inspection_id',
             'LCS': 'lcs_inspection_id',
             'CCC': 'coupling_id',
             'FPI': 'forklift_inspection_id',
