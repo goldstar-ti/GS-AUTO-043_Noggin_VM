@@ -182,7 +182,7 @@ python setup_database.py
 
 Edit configuration files:
 - `config/base_config.ini` - Database, API, paths
-- `config/load_compliance_check_config.ini` - Object-specific settings
+- `config/load_compliance_check_driver_loader_config.ini` - Object-specific settings
 
 ### 8. Import Entity Hashes
 ```bash
@@ -273,7 +273,7 @@ python noggin_processor.py
 ```bash
 # Place CSV files in /mnt/data/noggin/input/
 python -c "from common import *; \
-    config = ConfigLoader('config/base_config.ini', 'config/load_compliance_check_config.ini'); \
+    config = ConfigLoader('config/base_config.ini', 'config/load_compliance_check_driver_loader_config.ini'); \
     db = DatabaseConnectionManager(config); \
     importer = CSVImporter(config, db); \
     importer.scan_and_import_csv_files()"
@@ -510,7 +510,7 @@ Add:
 │
 ├── config/                          # Configuration files
 │   ├── base_config.ini              # Base configuration
-│   ├── load_compliance_check_config.ini
+│   ├── load_compliance_check_driver_loader_config.ini
 │   └── hashes/                      # Entity hash CSVs
 │       ├── vehicles.csv
 │       ├── trailers.csv

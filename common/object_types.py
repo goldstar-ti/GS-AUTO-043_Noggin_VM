@@ -61,7 +61,7 @@ OBJECT_TYPES: Dict[str, ObjectTypeConfig] = {
         full_name='Load Compliance Check Driver/Loader',
         id_column='lcdInspectionId',
         id_prefix='LCD - ',
-        config_file='load_compliance_check_config.ini'
+        config_file='load_compliance_check_driver_loader_config.ini'
     ),
     'SO': ObjectTypeConfig(
         abbreviation='SO',

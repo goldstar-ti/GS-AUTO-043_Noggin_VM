@@ -5,7 +5,7 @@ import logging
 
 config: ConfigLoader = ConfigLoader(
     'config/base_config.ini',
-    'config/load_compliance_check_config.ini'
+    'config/load_compliance_check_driver_loader_config.ini'
 )
 
 logger_manager: LoggerManager = LoggerManager(config, script_name='test_hash_manager')

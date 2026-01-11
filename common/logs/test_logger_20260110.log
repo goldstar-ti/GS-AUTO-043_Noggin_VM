@@ -1,0 +1,10 @@
+LOG_FORMAT_ERROR: 'message' | Original Message: Logger initialized. File: logs/test_logger_20260110.log
+LOG_FORMAT_ERROR: 'message' | Original Message: Configuration: Console=INFO, File=DEBUG
+LOG_FORMAT_ERROR: 'message' | Original Message: Short message
+LOG_FORMAT_ERROR: 'message' | Original Message: A much longer message that usually breaks formatting in standard log files
+LOG_FORMAT_ERROR: 'message' | Original Message: Connection lost
+LOG_FORMAT_ERROR: 'message' | Original Message: Logger initialized. File: logs/test_logger_20260110.log
+LOG_FORMAT_ERROR: 'message' | Original Message: Configuration: Console=INFO, File=DEBUG
+LOG_FORMAT_ERROR: 'message' | Original Message: Short message
+LOG_FORMAT_ERROR: 'message' | Original Message: A much longer message that usually breaks formatting in standard log files
+LOG_FORMAT_ERROR: 'message' | Original Message: Connection lost

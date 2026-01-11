@@ -245,7 +245,7 @@ if __name__ == "__main__":
     try:
         config: ConfigLoader = ConfigLoader(
             '../config/base_config.ini',
-            '../config/load_compliance_check_config.ini'
+            '../config/load_compliance_check_driver_loader_config.ini'
         )
         
         logger_manager: LoggerManager = LoggerManager(config, script_name='test_csv_importer')
@@ -314,7 +314,7 @@ pythonif __name__ == "__main__":
     try:
         config: ConfigLoader = ConfigLoader(
             'config/base_config.ini',  # Changed from '../config/base_config.ini'
-            'config/load_compliance_check_config.ini'  # Changed from '../config/load_compliance_check_config.ini'
+            'config/load_compliance_check_driver_loader_config.ini'  # Changed from '../config/load_compliance_check_driver_loader_config.ini'
         )
         
         logger_manager: LoggerManager = LoggerManager(config, script_name='test_csv_importer')
@@ -347,7 +347,7 @@ from typing import Dict, Any
 
 config: ConfigLoader = ConfigLoader(
     'config/base_config.ini',
-    'config/load_compliance_check_config.ini'
+    'config/load_compliance_check_driver_loader_config.ini'
 )
 
 logger_manager: LoggerManager = LoggerManager(config, script_name='test_csv_importer')
@@ -597,7 +597,7 @@ if __name__ == "__main__":
     try:
         config: ConfigLoader = ConfigLoader(
             '../config/base_config.ini',
-            '../config/load_compliance_check_config.ini'
+            '../config/load_compliance_check_driver_loader_config.ini'
         )
         
         logger_manager: LoggerManager = LoggerManager(config, script_name='test_circuit_breaker')
@@ -680,7 +680,7 @@ import logging
 
 config: ConfigLoader = ConfigLoader(
     'config/base_config.ini',
-    'config/load_compliance_check_config.ini'
+    'config/load_compliance_check_driver_loader_config.ini'
 )
 
 logger_manager: LoggerManager = LoggerManager(config, script_name='test_circuit_breaker')
@@ -1717,7 +1717,7 @@ def main() -> int:
     
     config: ConfigLoader = ConfigLoader(
         'config/base_config.ini',
-        'config/load_compliance_check_config.ini'
+        'config/load_compliance_check_driver_loader_config.ini'
     )
     
     logger_manager: LoggerManager = LoggerManager(config, script_name='noggin_continuous_processor')
@@ -2058,7 +2058,7 @@ def main() -> None:
     """Display service dashboard"""
     config: ConfigLoader = ConfigLoader(
         'config/base_config.ini',
-        'config/load_compliance_check_config.ini'
+        'config/load_compliance_check_driver_loader_config.ini'
     )
     
     db_manager: DatabaseConnectionManager = DatabaseConnectionManager(config)
@@ -2426,7 +2426,7 @@ python setup_database.py
 
 Edit configuration files:
 - `config/base_config.ini` - Database, API, paths
-- `config/load_compliance_check_config.ini` - Object-specific settings
+- `config/load_compliance_check_driver_loader_config.ini` - Object-specific settings
 
 ### 8. Import Entity Hashes
 ```bash
@@ -2517,7 +2517,7 @@ python noggin_processor.py
 ```bash
 # Place CSV files in /mnt/data/noggin/input/
 python -c "from common import *; \
-    config = ConfigLoader('config/base_config.ini', 'config/load_compliance_check_config.ini'); \
+    config = ConfigLoader('config/base_config.ini', 'config/load_compliance_check_driver_loader_config.ini'); \
     db = DatabaseConnectionManager(config); \
     importer = CSVImporter(config, db); \
     importer.scan_and_import_csv_files()"
@@ -2754,7 +2754,7 @@ Add:
 │
 ├── config/                          # Configuration files
 │   ├── base_config.ini              # Base configuration
-│   ├── load_compliance_check_config.ini
+│   ├── load_compliance_check_driver_loader_config.ini
 │   └── hashes/                      # Entity hash CSVs
 │       ├── vehicles.csv
 │       ├── trailers.csv
@@ -2977,7 +2977,7 @@ Get string configuration value.
 
 **Example:**
 ```python
-config = ConfigLoader('config/base_config.ini', 'config/load_compliance_check_config.ini')
+config = ConfigLoader('config/base_config.ini', 'config/load_compliance_check_driver_loader_config.ini')
 base_url = config.get('api', 'base_url')
 object_type = config.get('object', 'object_type', from_specific=True)
 ```
@@ -3043,7 +3043,7 @@ Configure root application logger with file and console handlers.
 
 **Example:**
 ```python
-config = ConfigLoader('config/base_config.ini', 'config/load_compliance_check_config.ini')
+config = ConfigLoader('config/base_config.ini', 'config/load_compliance_check_driver_loader_config.ini')
 logger_manager = LoggerManager(config, script_name='my_script')
 logger_manager.configure_application_logger()
 
@@ -4721,7 +4721,7 @@ bash# Check service status
 systemctl status noggin-processor
 
 # Check for configuration errors
-python -c "from common import ConfigLoader; ConfigLoader('config/base_config.ini', 'config/load_compliance_check_config.ini')"
+python -c "from common import ConfigLoader; ConfigLoader('config/base_config.ini', 'config/load_compliance_check_driver_loader_config.ini')"
 
 # Check database connection
 psql -U noggin_admin -d noggin_db -c "SELECT 1"

@@ -120,7 +120,7 @@ if __name__ == "__main__":
     try:
         config: ConfigLoader = ConfigLoader(
             'config/base_config.ini',
-            'config/load_compliance_check_config.ini'
+            'config/load_compliance_check_driver_loader_config.ini'
         )
         
         print("PostgreSQL Config:", config.get_postgresql_config())

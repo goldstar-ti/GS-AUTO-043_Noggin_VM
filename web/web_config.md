@@ -152,7 +152,7 @@ auth = HTTPBasicAuth()
 # Initialize
 config = ConfigLoader(
     '../config/base_config.ini',
-    '../config/load_compliance_check_config.ini'
+    '../config/load_compliance_check_driver_loader_config.ini'
 )
 db_manager = DatabaseConnectionManager(config)
 hash_manager = HashManager(config, db_manager)

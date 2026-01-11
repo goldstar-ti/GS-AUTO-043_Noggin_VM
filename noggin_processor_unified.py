@@ -30,7 +30,7 @@ logger = logging.getLogger(__name__)
 
 # Map abbreviations to config files
 CONFIG_FILES = {
-    'LCD': 'config/load_compliance_check_config.ini',
+    'LCD': 'config/load_compliance_check_driver_loader_config.ini',
     'LCS': 'config/load_compliance_check_supervisor_manager_config.ini',
     'CCC': 'config/coupling_compliance_check_config.ini',
     'FPI': 'config/forklift_prestart_inspection_config.ini',

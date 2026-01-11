@@ -78,7 +78,7 @@ def main() -> None:
     """Display service dashboard"""
     config: ConfigLoader = ConfigLoader(
         'config/base_config.ini',
-        'config/load_compliance_check_config.ini'
+        'config/load_compliance_check_driver_loader_config.ini'
     )
     
     db_manager: DatabaseConnectionManager = DatabaseConnectionManager(config)

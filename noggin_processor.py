@@ -97,7 +97,7 @@
     Configuration and dependencies
     ------------------------------
     - Requires a ConfigLoader instance populated from:
-        'config/base_config.ini' and 'config/load_compliance_check_config.ini'
+        'config/base_config.ini' and 'config/load_compliance_check_driver_loader_config.ini'
     Expected config sections/keys used in this module (examples):
         - [api]: base_url, media_service_url
         - [processing]: too_many_requests_sleep_time, attachment_pause, max_api_retries,
@@ -216,7 +216,7 @@ start_time: float = time.perf_counter()
 
 config: ConfigLoader = ConfigLoader(
     'config/base_config.ini',
-    'config/load_compliance_check_config.ini'
+    'config/load_compliance_check_driver_loader_config.ini'
 )
 
 batch_session_id: str = f"{datetime.now().strftime('%Y%m%d_%H%M%S')}_batch_{str(uuid.uuid4())[:8].upper()}"

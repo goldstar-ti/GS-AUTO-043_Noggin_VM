@@ -250,7 +250,7 @@ Note: For importing/syncing hash data, use hash_lookup_sync.py instead.
     # Initialise components
     config = ConfigLoader(
         'config/base_config.ini',
-        'config/load_compliance_check_config.ini'
+        'config/load_compliance_check_driver_loader_config.ini'
     )
     
     logger_manager = LoggerManager(config, script_name='manage_hashes')

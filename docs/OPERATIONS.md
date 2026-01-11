@@ -248,7 +248,7 @@ SQL
 # Circuit breaker statistics
 python -c "
 from common import ConfigLoader, CircuitBreaker
-config = ConfigLoader('config/base_config.ini', 'config/load_compliance_check_config.ini')
+config = ConfigLoader('config/base_config.ini', 'config/load_compliance_check_driver_loader_config.ini')
 cb = CircuitBreaker(config)
 print(cb.get_statistics())
 "
@@ -393,7 +393,7 @@ cp new_tips.csv /mnt/data/noggin/input/
 # OR trigger manually:
 python -c "
 from common import ConfigLoader, DatabaseConnectionManager, CSVImporter
-config = ConfigLoader('config/base_config.ini', 'config/load_compliance_check_config.ini')
+config = ConfigLoader('config/base_config.ini', 'config/load_compliance_check_driver_loader_config.ini')
 db = DatabaseConnectionManager(config)
 importer = CSVImporter(config, db)
 result = importer.scan_and_import_csv_files()
@@ -459,7 +459,7 @@ nano config/base_config.ini
 python -c "
 import requests
 from common import ConfigLoader
-config = ConfigLoader('config/base_config.ini', 'config/load_compliance_check_config.ini')
+config = ConfigLoader('config/base_config.ini', 'config/load_compliance_check_driver_loader_config.ini')
 headers = config.get_api_headers()
 response = requests.get(
     'https://services.apse2.elasticnoggin.com/rest/object/loadComplianceCheckDriverLoader/TEST_TIP',
@@ -653,7 +653,7 @@ python -c "from common import ConfigLoader; print('OK')"
 python -c "
 from common import ConfigLoader
 try:
-    config = ConfigLoader('config/base_config.ini', 'config/load_compliance_check_config.ini')
+    config = ConfigLoader('config/base_config.ini', 'config/load_compliance_check_driver_loader_config.ini')
     print('Config OK')
 except Exception as e:
     print(f'Config Error: {e}')
@@ -691,7 +691,7 @@ python noggin_continuous_processor.py
 # 1. Check circuit breaker state
 python -c "
 from common import ConfigLoader, CircuitBreaker
-config = ConfigLoader('config/base_config.ini', 'config/load_compliance_check_config.ini')
+config = ConfigLoader('config/base_config.ini', 'config/load_compliance_check_driver_loader_config.ini')
 cb = CircuitBreaker(config)
 stats = cb.get_statistics()
 print(f'State: {stats[\"state\"]}')
@@ -715,7 +715,7 @@ SQL
 python -c "
 import requests
 from common import ConfigLoader
-config = ConfigLoader('config/base_config.ini', 'config/load_compliance_check_config.ini')
+config = ConfigLoader('config/base_config.ini', 'config/load_compliance_check_driver_loader_config.ini')
 headers = config.get_api_headers()
 response = requests.get(
     'https://services.apse2.elasticnoggin.com/rest/object/loadComplianceCheckDriverLoader/test',
@@ -874,7 +874,7 @@ python noggin_continuous_processor.py
 2. **Configuration error**
 ```bash
    # Validate config
-   python -c "from common import ConfigLoader; ConfigLoader('config/base_config.ini', 'config/load_compliance_check_config.ini')"
+   python -c "from common import ConfigLoader; ConfigLoader('config/base_config.ini', 'config/load_compliance_check_driver_loader_config.ini')"
 ```
 
 3. **Permission denied**
@@ -952,7 +952,7 @@ sudo cat /etc/postgresql/*/main/pg_hba.conf | grep noggin
 python -c "
 import requests
 from common import ConfigLoader
-config = ConfigLoader('config/base_config.ini', 'config/load_compliance_check_config.ini')
+config = ConfigLoader('config/base_config.ini', 'config/load_compliance_check_driver_loader_config.ini')
 headers = config.get_api_headers()
 print(f'Headers: {headers}')
 response = requests.get(
@@ -1748,7 +1748,7 @@ Verify configuration
 
 bash   python -c "
    from common import ConfigLoader
-   config = ConfigLoader('config/base_config.ini', 'config/load_compliance_check_config.ini')
+   config = ConfigLoader('config/base_config.ini', 'config/load_compliance_check_driver_loader_config.ini')
    headers = config.get_api_headers()
    print('Token length:', len(headers['authorization']))
    print('Starts with Bearer:', headers['authorization'].startswith('Bearer'))

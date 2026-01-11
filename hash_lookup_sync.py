@@ -48,7 +48,6 @@ ASSET_TYPE_MAPPING: dict[str, str] = {
     'DROPDECK': 'trailer',
     'DOLLY': 'trailer',
     'UHF': 'uhf',
-    'SKEL': 'trailer',
 }
 
 # Site name patterns that indicate department vs team
