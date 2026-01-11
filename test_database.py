@@ -36,7 +36,7 @@ try:
     logger.info("Testing transaction...")
     test_queries = [
         ("INSERT INTO noggin_data (tip, object_type, processing_status) VALUES (%s, %s, %s)", 
-         ('test_tip_stage3', 'Driver 360', 'pending')),
+         ('test_tip_stage3', 'Load Compliance Check (Driver/Loader)', 'pending')),
     ]
     success: bool = db_manager.execute_transaction(test_queries)
     logger.info(f"Transaction success: {success}")

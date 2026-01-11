@@ -33,7 +33,6 @@ class ObjectTypeConfig:
 
 
 # Centralised object type definitions
-# Note: LCD = Load Compliance Check (Driver/Loader), matches Noggin's ID prefix "LCD - "
 OBJECT_TYPES: Dict[str, ObjectTypeConfig] = {
     'CCC': ObjectTypeConfig(
         abbreviation='CCC',

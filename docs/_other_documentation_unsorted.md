@@ -49,7 +49,7 @@ class CSVImporter:
         headers_lower: List[str] = [h.lower().strip() for h in headers]
         
         if 'lcdinspectionid' in headers_lower:
-            return 'Driver 360'
+            return 'Load Compliance Check (Driver/Loader)'
         elif 'couplingid' in headers_lower:
             return 'Coupling Compliance Check'
         elif 'trailerauditid' in headers_lower:
@@ -407,7 +407,7 @@ bashpython test_csv_importer.py
 14:20:15    INFO        import_csv_file         Importing TIPs from test_tips.csv
 14:20:15    INFO        import_csv_file         CSV headers: ['nogginId', 'lcdInspectionId', 'date', ...]
 14:20:15    INFO        import_csv_file         TIP column at index 0 (first column)
-14:20:15    INFO        detect_object_type      Detected object type: Driver 360
+14:20:15    INFO        detect_object_type      Detected object type: Load Compliance Check (Driver/Loader)
 14:20:15    INFO        import_csv_file         Import complete: 1 imported, 0 duplicates, 0 errors
 14:20:15    INFO        move_csv_file           Moving test_tips.csv to processed folder
 14:20:15    INFO        move_csv_file           File moved to: /mnt/data/noggin/input/processed/test_tips_20251022_142015.csv
@@ -3130,7 +3130,7 @@ Execute INSERT, UPDATE, or DELETE query.
 # Insert
 rows = db.execute_update(
     "INSERT INTO noggin_data (tip, object_type, processing_status) VALUES (%s, %s, %s)",
-    ('abc123', 'Driver 360', 'pending')
+    ('abc123', 'Load Compliance Check (Driver/Loader)', 'pending')
 )
 
 # Update
@@ -3305,7 +3305,7 @@ Import TIPs from single CSV file.
 **CSV Format:**
 - First column must contain TIP hashes
 - Column headers used to detect object type:
-  - `lcdInspectionId` → Driver 360
+  - `lcdInspectionId` → Load Compliance Check (Driver/Loader)
   - `couplingId` → Coupling Compliance Check
   - `trailerAuditId` → Trailer Audit
 
