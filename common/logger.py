@@ -40,7 +40,8 @@ class AlignedFormatter(logging.Formatter):
         # Create a copy to avoid modifying the original record permanently
         record_dict = record.__dict__.copy()
 
-        # Process specific fields for alignment
+        record_dict['message'] = record.getMessage() # fully interpolated message
+
         for key, width in self.column_widths.items():
             val = str(record_dict.get(key, ''))
 
@@ -180,7 +181,7 @@ class LoggerManager:
         session_log_file: Path = self.log_path / f'session_{session_id}.log'
 
         try:
-            session_formatter: logging.Formatter = logging.Formatter( '%(asctime)s | %(message)s', datefmt='%Y-%m-%d %H:%M:%S') # simple format for session logs
+            session_formatter: logging.Formatter = logging.Formatter( '%(asctime)s | %(message)s', datefmt='%Y-%m-%d %H:%M:%S')
             session_handler: logging.FileHandler = logging.FileHandler(session_log_file, encoding='utf-8')
             session_handler.setLevel(logging.INFO)
             session_handler.setFormatter(session_formatter)
@@ -291,7 +292,7 @@ if __name__ == "__main__":
         db_logger = logging.getLogger("common.database.connection.pool")
         db_logger.warning("Connection lost")
 
-        print(f"\nTest completed. Check log file in {logger_manager.log_path}\nZ")
+        print(f"\nTest completed. Check log file in {logger_manager.log_path}\n")
 
     except Exception as e:
         print(f"Test failed: {e}")
