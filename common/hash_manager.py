@@ -602,6 +602,34 @@ class HashManager:
                 
         except Exception as e:
             logger.debug(f"Could not update lookup_type for {tip_hash[:16]}...: {e}")
+
+    def get_by_type(self, lookup_type: str) -> list[dict]:
+            """
+            Get all hash entries for a specific lookup type.
+            
+            Args:
+                lookup_type: The type of entity to list (e.g., 'vehicle', 'trailer')
+                
+            Returns:
+                List of dictionaries containing hash details with keys:
+                'resolved_value', 'source_type', 'tip_hash'
+            """
+            query = """
+                SELECT resolved_value, source_type, tip_hash
+                FROM hash_lookup
+                WHERE lookup_type = %s
+                ORDER BY resolved_value ASC
+            """
+            
+            try:
+                return self.db_manager.execute_query_dict(query, (lookup_type,))
+            except Exception as e:
+                # Use the class logger if available, otherwise fallback
+                if hasattr(self, 'logger'):
+                    self.logger.error(f"Failed to get hashes by type {lookup_type}: {e}")
+                else:
+                    logging.error(f"Failed to get hashes by type {lookup_type}: {e}")
+                return []
     
     def get_statistics(self) -> Dict[str, Dict[str, int]]:
         """Get statistics about known and unknown hashes by type"""
