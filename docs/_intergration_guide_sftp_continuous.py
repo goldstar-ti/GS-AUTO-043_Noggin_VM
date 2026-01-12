@@ -128,7 +128,7 @@ def example_modified_main():
     try:
         config = ConfigLoader(
             'config/base_config.ini',
-            'config/load_compliance_check_config.ini'
+            'config/load_compliance_check_driver_loader_config.ini'
         )
         
         logger_manager = LoggerManager(config, script_name='noggin_continuous_processor')

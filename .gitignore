@@ -2,3 +2,4 @@ common/__pycache__/
 .venv/
 .vscode/
 __pycache__/
+scratch/

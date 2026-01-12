@@ -183,8 +183,6 @@ def run_sftp_download_cycle(config, db_manager) -> dict:
     Returns:
         Dictionary with download statistics
     """
-    from sftp_download_tips import run_sftp_download
-    
     logger.info("Starting SFTP download cycle...")
     
     try:
@@ -217,11 +215,11 @@ def main() -> int:
     global shutdown_requested
     shutdown_requested = False
 
-    def signal_handler(signum: int, frame: Any) -> None:
-        """Handle shutdown signals gracefully"""
-        nonlocal shutdown_requested
-        logger.info(f"Received signal {signum}. Initiating graceful shutdown...")
-        shutdown_requested = True
+    # def signal_handler(signum: int, frame: Any) -> None:
+    #     """Handle shutdown signals gracefully"""
+    #     # nonlocal shutdown_requested
+    #     logger.info(f"Received signal {signum}. Initiating graceful shutdown...")
+    #     shutdown_requested = True
     
     signal.signal(signal.SIGINT, signal_handler)
     signal.signal(signal.SIGTERM, signal_handler)
@@ -311,7 +309,6 @@ def main() -> int:
         # Sleep before next cycle
         if not shutdown_requested:
             logger.info(f"Sleeping {cycle_sleep}s before next cycle...")
-            import time
             time.sleep(cycle_sleep)        
             
         return 0

@@ -751,7 +751,7 @@ def run_sftp_download(
             if base_config is None:
                 base_config = ConfigLoader(
                     'config/base_config.ini',
-                    'config/load_compliance_check_config.ini'
+                    'config/load_compliance_check_driver_loader_config.ini'
                 )
             db_manager = DatabaseConnectionManager(base_config)
             own_db_manager = True
@@ -833,7 +833,7 @@ def main() -> int:
     try:
         base_config = ConfigLoader(
             'config/base_config.ini',
-            'config/load_compliance_check_config.ini'
+            'config/load_compliance_check_driver_loader_config.ini'
         )
         
         logger_manager = LoggerManager(base_config, script_name='sftp_download_tips')
