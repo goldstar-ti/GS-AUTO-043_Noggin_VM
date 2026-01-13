@@ -61,7 +61,7 @@ def index():
         recent_query = """
             SELECT 
                 tip,
-                lcd_inspection_id,
+                noggin_reference,
                 inspection_date,
                 processing_status,
                 total_attachments,
@@ -143,7 +143,7 @@ def inspections():
     inspections_query = f"""
         SELECT 
             tip,
-            lcd_inspection_id,
+            noggin_reference,
             inspection_date,
             vehicle,
             trailer,

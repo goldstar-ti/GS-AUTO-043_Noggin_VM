@@ -213,3 +213,35 @@ CREATE TABLE noggin_schema.session_log (
 	processing_priority varchar(20) NULL,
 	CONSTRAINT session_log_pkey PRIMARY KEY (session_id)
 );
+
+-- noggin_schema.unknown_hashes definition
+
+-- Drop table
+
+-- DROP TABLE noggin_schema.unknown_hashes;
+
+CREATE TABLE noggin_schema.unknown_hashes (
+	tip_hash varchar(64) NOT NULL,
+	lookup_type varchar(50) NOT NULL,
+	first_seen_at timestamp DEFAULT CURRENT_TIMESTAMP NULL,
+	first_seen_tip varchar(64) NULL,
+	first_seen_inspection_id varchar(50) NULL,
+	last_seen_at timestamp DEFAULT CURRENT_TIMESTAMP NULL,
+	occurrence_count int4 DEFAULT 1 NULL,
+	resolved_at timestamp NULL,
+	resolved_value text NULL,
+	created_at timestamp DEFAULT CURRENT_TIMESTAMP NULL,
+	updated_at timestamp DEFAULT CURRENT_TIMESTAMP NULL,
+	CONSTRAINT unknown_hashes_pkey PRIMARY KEY (tip_hash, lookup_type)
+);
+CREATE INDEX idx_unknown_hashes_first_seen_inspection_id ON noggin_schema.unknown_hashes USING btree (first_seen_inspection_id) WHERE (first_seen_inspection_id IS NOT NULL);
+CREATE INDEX idx_unknown_hashes_lookup_type ON noggin_schema.unknown_hashes USING btree (lookup_type);
+CREATE INDEX idx_unknown_hashes_occurrence_count ON noggin_schema.unknown_hashes USING btree (occurrence_count DESC);
+CREATE INDEX idx_unknown_hashes_resolved_at ON noggin_schema.unknown_hashes USING btree (resolved_at) WHERE (resolved_at IS NULL);
+
+-- Table Triggers
+
+create trigger trg_unknown_hashes_updated_at before
+update
+    on
+    noggin_schema.unknown_hashes for each row execute function noggin_schema.update_modified_timestamp();

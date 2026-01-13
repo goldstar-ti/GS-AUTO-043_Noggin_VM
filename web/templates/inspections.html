@@ -36,7 +36,7 @@
         <tbody>
             {% for inspection in inspections %}
             <tr>
-                <td>{{ inspection.lcd_inspection_id or 'N/A' }}</td>
+                <td>{{ inspection.noggin_reference or 'N/A' }}</td>
                 <td>{{ inspection.inspection_date.strftime('%Y-%m-%d') if inspection.inspection_date else 'N/A' }}</td>
                 <td>{{ inspection.vehicle or 'N/A' }}</td>
                 <td>{{ inspection.trailer or 'N/A' }}</td>

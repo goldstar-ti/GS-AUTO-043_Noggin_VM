@@ -62,7 +62,7 @@
         <tbody>
             {% for item in recent %}
             <tr>
-                <td>{{ item.lcd_inspection_id or 'N/A' }}</td>
+                <td>{{ item.noggin_reference or 'N/A' }}</td>
                 <td>{{ item.inspection_date.strftime('%Y-%m-%d') if item.inspection_date else 'N/A' }}</td>
                 <td>
                     {% set status_class = {
