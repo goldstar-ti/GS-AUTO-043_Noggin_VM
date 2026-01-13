@@ -1293,169 +1293,79 @@ def log_shutdown_summary(processed_count: int, total_count: int, start_time_val:
 
 
 def main() -> int:
-    """Main processing function"""
+    """Main processing function - DB Driven"""
     global current_tip_being_processed
 
-    tip_csv_file_path: Path = Path('tip.csv')
+    # Configuration for batch size
+    batch_limit: int = 100
+    
+    logger.info("Fetching TIPs to process from database...")
+    tips_to_process: List[Dict[str, Any]] = get_tips_to_process_from_database(limit=batch_limit)
+    
+    total_tip_count: int = len(tips_to_process)
+    
+    if total_tip_count == 0:
+        logger.info("No eligible TIPs found in database (pending or due for retry).")
+        return 0
 
-    if not tip_csv_file_path.exists():
-        logger.error(f"TIP CSV file not found: {tip_csv_file_path}")
-        return 1
-
-    total_tip_count: int = get_total_tip_count(tip_csv_file_path)
-    logger.info(f"Found {total_tip_count} valid TIPs to process")
+    logger.info(f"Found {total_tip_count} TIPs to process")
 
     processed_count: int = 0
     main_start_time: float = time.perf_counter()
 
-    logger.info(f"Opening TIP CSV file: {tip_csv_file_path}")
+    for i, tip_record in enumerate(tips_to_process, start=1):
+        if not shutdown_handler.should_continue_processing():
+            logger.warning(f"Graceful shutdown after processing {processed_count} TIPs")
+            break
 
-    import csv
+        tip_value: str = tip_record['tip']
+        
+        # We can use the retry count directly from the DB record since we just queried it
+        current_retry_count: int = tip_record.get('retry_count', 0)
 
-    with open(tip_csv_file_path, 'r', newline='', encoding='utf-8') as file:
-        tip_csv_reader = csv.reader(file)
-        header: List[str] = next(tip_csv_reader)
+        current_tip_being_processed = tip_value
+        processed_count += 1
 
-        header = [col.strip().lower() for col in header]
-        logger.info(f"CSV headers: {header}")
+        if processed_count % 10 == 0:
+            update_progress_tracking(processed_count, total_tip_count, main_start_time)
 
         try:
-            tip_column_index: int = header.index('tip')
-            logger.info(f"TIP column found at index {tip_column_index}")
-        except ValueError:
-            logger.error(f"CSV must contain 'tip' column. Found: {header}")
-            return 1
+            circuit_breaker.before_request()
+        except CircuitBreakerError as e:
+            logger.warning(f"Circuit breaker blocked request for TIP {tip_value}: {e}")
+            # If circuit breaker is open, we probably shouldn't hammer it with the rest of the batch
+            time.sleep(10)
+            continue
 
-        for row_num, row in enumerate(tip_csv_reader, start=2):
-            if not shutdown_handler.should_continue_processing():
-                logger.warning(f"Graceful shutdown after processing {processed_count} TIPs")
-                break
+        endpoint: str = endpoint_template.replace('$tip', tip_value)
+        url: str = base_url + endpoint
+        logger.info(f"Processing TIP {processed_count}/{total_tip_count}: {tip_value} (retry: {current_retry_count})")
+        logger.debug(f"Request URL: {url}")
 
-            if not row or all(not cell.strip() for cell in row):
-                continue
+        try:
+            api_start_time: float = time.perf_counter()
+            response: requests.Response = requests.get(url, headers=headers, timeout=api_timeout)
+            circuit_breaker.record_success()
+            api_retry_count: int = 0
 
-            if len(row) <= tip_column_index:
-                logger.warning(f"Row {row_num}: insufficient columns")
-                continue
-
-            tip_value: str = row[tip_column_index].strip()
-            if not tip_value:
-                continue
-
-            current_tip_being_processed = tip_value
-
-            should_process, current_retry_count = should_process_tip(tip_value)
-            if not should_process:
-                continue
-
-            processed_count += 1
-
-            if processed_count % 10 == 0:
-                update_progress_tracking(processed_count, total_tip_count, main_start_time)
-
-            try:
-                circuit_breaker.before_request()
-            except CircuitBreakerError as e:
-                logger.warning(f"Circuit breaker blocked request for TIP {tip_value}: {e}")
-                time.sleep(10)
-                continue
-
-            endpoint: str = endpoint_template.replace('$tip', tip_value)
-            url: str = base_url + endpoint
-            logger.info(f"Processing TIP {processed_count}/{total_tip_count}: {tip_value} (retry: {current_retry_count})")
-            logger.debug(f"Request URL: {url}")
-
-            try:
-                api_start_time: float = time.perf_counter()
-                response: requests.Response = requests.get(url, headers=headers, timeout=api_timeout)
-                circuit_breaker.record_success()
-                api_retry_count: int = 0
-
-                if response.status_code == 429:
-                    circuit_breaker.record_failure()
-                    logger.warning(f"Rate limited for TIP {tip_value}. Sleeping {too_many_requests_sleep_time}s")
-                    time.sleep(too_many_requests_sleep_time)
-                    try:
-                        circuit_breaker.before_request()
-                        response = requests.get(url, headers=headers, timeout=api_timeout)
-                        circuit_breaker.record_success()
-                        api_retry_count = 1
-                    except CircuitBreakerError as cb_error:
-                        logger.warning(f"Circuit breaker blocked retry: {cb_error}")
-                        
-                        new_retry_count: int = current_retry_count + 1
-                        next_retry: datetime = calculate_next_retry_time(new_retry_count)
-                        
-                        db_manager.execute_update(
-                            """
-                            INSERT INTO noggin_data (tip, object_type, processing_status, last_error_message,
-                                                    retry_count, last_retry_at, next_retry_at)
-                            VALUES (%s, %s, %s, %s, %s, %s, %s)
-                            ON CONFLICT (tip) DO UPDATE SET
-                                processing_status = EXCLUDED.processing_status,
-                                last_error_message = EXCLUDED.last_error_message,
-                                retry_count = EXCLUDED.retry_count,
-                                last_retry_at = EXCLUDED.last_retry_at,
-                                next_retry_at = EXCLUDED.next_retry_at
-                            """,
-                            (tip_value, object_type, 'api_failed', str(cb_error),
-                             new_retry_count, datetime.now(), next_retry)
-                        )
-                        continue
-                    except requests.exceptions.RequestException as retry_error:
-                        circuit_breaker.record_failure()
-                        logger.error(f"Retry failed for TIP {tip_value}: {retry_error}", exc_info=True)
-
-                        new_retry_count = current_retry_count + 1
-                        next_retry = calculate_next_retry_time(new_retry_count)
-
-                        db_manager.execute_update(
-                            """
-                            INSERT INTO noggin_data (tip, object_type, processing_status, last_error_message,
-                                                    retry_count, last_retry_at, next_retry_at)
-                            VALUES (%s, %s, %s, %s, %s, %s, %s)
-                            ON CONFLICT (tip) DO UPDATE SET
-                                processing_status = EXCLUDED.processing_status,
-                                last_error_message = EXCLUDED.last_error_message,
-                                retry_count = EXCLUDED.retry_count,
-                                last_retry_at = EXCLUDED.last_retry_at,
-                                next_retry_at = EXCLUDED.next_retry_at
-                            """,
-                            (tip_value, object_type, 'api_failed', str(retry_error),
-                             new_retry_count, datetime.now(), next_retry)
-                        )
-
-                        db_manager.execute_update(
-                            """
-                            INSERT INTO processing_errors (tip, error_type, error_message, error_details)
-                            VALUES (%s, %s, %s, %s)
-                            """,
-                            (tip_value, 'api_failed', str(retry_error), json.dumps({'url': url}))
-                        )
-                        continue
-
-                if response.status_code == 200:
-                    logger.info(f"Successful API response for TIP {tip_value}")
-                    response_data: Dict[str, Any] = response.json()
-
-                    insert_noggin_data_record(tip_value, response_data)
-
-                    lcd_inspection_id: str = response_data.get('lcdInspectionId', 'unknown')
-
-                    process_attachments(response_data, lcd_inspection_id, tip_value)
-
-                else:
-                    circuit_breaker.record_failure()
-                    error_details: str = handle_api_error(response, tip_value, url)
-                    logger.error(error_details)
-                    session_logger.info(f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\t{tip_value}\tAPI_ERROR_{response.status_code}\t0\tERROR")
-
-                    new_retry_count = current_retry_count + 1
-                    next_retry = calculate_next_retry_time(new_retry_count)
-
+            if response.status_code == 429:
+                circuit_breaker.record_failure()
+                logger.warning(f"Rate limited for TIP {tip_value}. Sleeping {too_many_requests_sleep_time}s")
+                time.sleep(too_many_requests_sleep_time)
+                try:
+                    circuit_breaker.before_request()
+                    response = requests.get(url, headers=headers, timeout=api_timeout)
+                    circuit_breaker.record_success()
+                    api_retry_count = 1
+                except CircuitBreakerError as cb_error:
+                    logger.warning(f"Circuit breaker blocked retry: {cb_error}")
+                    
+                    new_retry_count: int = current_retry_count + 1
+                    next_retry: datetime = calculate_next_retry_time(new_retry_count)
+                    
                     db_manager.execute_update(
                         """
-                        INSERT INTO noggin_data (tip, object_type, processing_status, last_error_message,
+                        INSERT INTO noggin_data (tip, object_type, processing_status, last_error_message, 
                                                 retry_count, last_retry_at, next_retry_at)
                         VALUES (%s, %s, %s, %s, %s, %s, %s)
                         ON CONFLICT (tip) DO UPDATE SET
@@ -1465,7 +1375,30 @@ def main() -> int:
                             last_retry_at = EXCLUDED.last_retry_at,
                             next_retry_at = EXCLUDED.next_retry_at
                         """,
-                        (tip_value, object_type, 'api_failed', error_details,
+                        (tip_value, object_type, 'api_failed', str(cb_error), 
+                         new_retry_count, datetime.now(), next_retry)
+                    )
+                    continue
+                except requests.exceptions.RequestException as retry_error:
+                    circuit_breaker.record_failure()
+                    logger.error(f"Retry failed for TIP {tip_value}: {retry_error}", exc_info=True)
+
+                    new_retry_count = current_retry_count + 1
+                    next_retry = calculate_next_retry_time(new_retry_count)
+
+                    db_manager.execute_update(
+                        """
+                        INSERT INTO noggin_data (tip, object_type, processing_status, last_error_message, 
+                                                retry_count, last_retry_at, next_retry_at)
+                        VALUES (%s, %s, %s, %s, %s, %s, %s)
+                        ON CONFLICT (tip) DO UPDATE SET
+                            processing_status = EXCLUDED.processing_status,
+                            last_error_message = EXCLUDED.last_error_message,
+                            retry_count = EXCLUDED.retry_count,
+                            last_retry_at = EXCLUDED.last_retry_at,
+                            next_retry_at = EXCLUDED.next_retry_at
+                        """,
+                        (tip_value, object_type, 'api_failed', str(retry_error), 
                          new_retry_count, datetime.now(), next_retry)
                     )
 
@@ -1474,22 +1407,32 @@ def main() -> int:
                         INSERT INTO processing_errors (tip, error_type, error_message, error_details)
                         VALUES (%s, %s, %s, %s)
                         """,
-                        (tip_value, 'api_failed', error_details, json.dumps({
-                            'http_status': response.status_code,
-                            'url': url
-                        }))
+                        (tip_value, 'api_failed', str(retry_error), json.dumps({'url': url}))
                     )
+                    continue
 
-            except requests.exceptions.ConnectionError as connection_error:
+            if response.status_code == 200:
+                logger.info(f"Successful API response for TIP {tip_value}")
+                response_data: Dict[str, Any] = response.json()
+
+                insert_noggin_data_record(tip_value, response_data)
+
+                lcd_inspection_id: str = response_data.get('lcdInspectionId', 'unknown')
+
+                process_attachments(response_data, lcd_inspection_id, tip_value)
+
+            else:
                 circuit_breaker.record_failure()
-                logger.error(f"Connection error for TIP {tip_value}: {connection_error}", exc_info=True)
+                error_details: str = handle_api_error(response, tip_value, url)
+                logger.error(error_details)
+                session_logger.info(f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\t{tip_value}\tAPI_ERROR_{response.status_code}\t0\tERROR")
 
                 new_retry_count = current_retry_count + 1
                 next_retry = calculate_next_retry_time(new_retry_count)
 
                 db_manager.execute_update(
                     """
-                    INSERT INTO noggin_data (tip, object_type, processing_status, last_error_message,
+                    INSERT INTO noggin_data (tip, object_type, processing_status, last_error_message, 
                                             retry_count, last_retry_at, next_retry_at)
                     VALUES (%s, %s, %s, %s, %s, %s, %s)
                     ON CONFLICT (tip) DO UPDATE SET
@@ -1499,63 +1442,96 @@ def main() -> int:
                         last_retry_at = EXCLUDED.last_retry_at,
                         next_retry_at = EXCLUDED.next_retry_at
                     """,
-                    (tip_value, object_type, 'api_failed', str(connection_error),
+                    (tip_value, object_type, 'api_failed', error_details, 
                      new_retry_count, datetime.now(), next_retry)
                 )
-                continue
-
-            except requests.exceptions.RequestException as request_error:
-                circuit_breaker.record_failure()
-                logger.error(f"Request error for TIP {tip_value}: {request_error}", exc_info=True)
-
-                new_retry_count = current_retry_count + 1
-                next_retry = calculate_next_retry_time(new_retry_count)
 
                 db_manager.execute_update(
                     """
-                    INSERT INTO noggin_data (tip, object_type, processing_status, last_error_message,
-                                            retry_count, last_retry_at, next_retry_at)
-                    VALUES (%s, %s, %s, %s, %s, %s, %s)
-                    ON CONFLICT (tip) DO UPDATE SET
-                        processing_status = EXCLUDED.processing_status,
-                        last_error_message = EXCLUDED.last_error_message,
-                        retry_count = EXCLUDED.retry_count,
-                        last_retry_at = EXCLUDED.last_retry_at,
-                        next_retry_at = EXCLUDED.next_retry_at
+                    INSERT INTO processing_errors (tip, error_type, error_message, error_details)
+                    VALUES (%s, %s, %s, %s)
                     """,
-                    (tip_value, object_type, 'api_failed', str(request_error),
-                     new_retry_count, datetime.now(), next_retry)
+                    (tip_value, 'api_failed', error_details, json.dumps({
+                        'http_status': response.status_code,
+                        'url': url
+                    }))
                 )
-                continue
 
-            except Exception as e:
-                circuit_breaker.record_failure()
-                logger.error(f"Unexpected error processing TIP {tip_value}: {e}", exc_info=True)
+        except requests.exceptions.ConnectionError as connection_error:
+            circuit_breaker.record_failure()
+            logger.error(f"Connection error for TIP {tip_value}: {connection_error}", exc_info=True)
 
-                new_retry_count = current_retry_count + 1
-                next_retry = calculate_next_retry_time(new_retry_count)
+            new_retry_count = current_retry_count + 1
+            next_retry = calculate_next_retry_time(new_retry_count)
 
-                db_manager.execute_update(
-                    """
-                    INSERT INTO noggin_data (tip, object_type, processing_status, last_error_message,
-                                            retry_count, last_retry_at, next_retry_at)
-                    VALUES (%s, %s, %s, %s, %s, %s, %s)
-                    ON CONFLICT (tip) DO UPDATE SET
-                        processing_status = EXCLUDED.processing_status,
-                        last_error_message = EXCLUDED.last_error_message,
-                        retry_count = EXCLUDED.retry_count,
-                        last_retry_at = EXCLUDED.last_retry_at,
-                        next_retry_at = EXCLUDED.next_retry_at
-                    """,
-                    (tip_value, object_type, 'failed', str(e),
-                     new_retry_count, datetime.now(), next_retry)
-                )
-                continue
+            db_manager.execute_update(
+                """
+                INSERT INTO noggin_data (tip, object_type, processing_status, last_error_message, 
+                                        retry_count, last_retry_at, next_retry_at)
+                VALUES (%s, %s, %s, %s, %s, %s, %s)
+                ON CONFLICT (tip) DO UPDATE SET
+                    processing_status = EXCLUDED.processing_status,
+                    last_error_message = EXCLUDED.last_error_message,
+                    retry_count = EXCLUDED.retry_count,
+                    last_retry_at = EXCLUDED.last_retry_at,
+                    next_retry_at = EXCLUDED.next_retry_at
+                """,
+                (tip_value, object_type, 'api_failed', str(connection_error), 
+                 new_retry_count, datetime.now(), next_retry)
+            )
+            continue
+
+        except requests.exceptions.RequestException as request_error:
+            circuit_breaker.record_failure()
+            logger.error(f"Request error for TIP {tip_value}: {request_error}", exc_info=True)
+
+            new_retry_count = current_retry_count + 1
+            next_retry = calculate_next_retry_time(new_retry_count)
+
+            db_manager.execute_update(
+                """
+                INSERT INTO noggin_data (tip, object_type, processing_status, last_error_message, 
+                                        retry_count, last_retry_at, next_retry_at)
+                VALUES (%s, %s, %s, %s, %s, %s, %s)
+                ON CONFLICT (tip) DO UPDATE SET
+                    processing_status = EXCLUDED.processing_status,
+                    last_error_message = EXCLUDED.last_error_message,
+                    retry_count = EXCLUDED.retry_count,
+                    last_retry_at = EXCLUDED.last_retry_at,
+                    next_retry_at = EXCLUDED.next_retry_at
+                """,
+                (tip_value, object_type, 'api_failed', str(request_error), 
+                 new_retry_count, datetime.now(), next_retry)
+            )
+            continue
+
+        except Exception as e:
+            circuit_breaker.record_failure()
+            logger.error(f"Unexpected error processing TIP {tip_value}: {e}", exc_info=True)
+
+            new_retry_count = current_retry_count + 1
+            next_retry = calculate_next_retry_time(new_retry_count)
+
+            db_manager.execute_update(
+                """
+                INSERT INTO noggin_data (tip, object_type, processing_status, last_error_message, 
+                                        retry_count, last_retry_at, next_retry_at)
+                VALUES (%s, %s, %s, %s, %s, %s, %s)
+                ON CONFLICT (tip) DO UPDATE SET
+                    processing_status = EXCLUDED.processing_status,
+                    last_error_message = EXCLUDED.last_error_message,
+                    retry_count = EXCLUDED.retry_count,
+                    last_retry_at = EXCLUDED.last_retry_at,
+                    next_retry_at = EXCLUDED.next_retry_at
+                """,
+                (tip_value, object_type, 'failed', str(e), 
+                 new_retry_count, datetime.now(), next_retry)
+            )
+            continue
 
         current_tip_being_processed = None
 
     return processed_count
-
 
 if __name__ == "__main__":
     try:
