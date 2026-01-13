@@ -249,6 +249,10 @@ show_json_payload_in_text_file: bool = config.getboolean('output', 'show_json_pa
 show_compliance_status: bool = config.getboolean('output', 'show_compliance_status', from_specific=True)
 filename_image_stub: str = config.get('output', 'filename_image_stub', from_specific=True)
 unknown_response_output_text: str = config.get('output', 'unknown_response_output_text', from_specific=True)
+folder_pattern: str = config.get('output', 'folder_pattern', from_specific=True)
+attachment_pattern: str = config.get('output', 'attachment_pattern', from_specific=True)
+
+abbreviation: str = config.get('object_type', 'abbreviation', from_specific=True)
 
 object_type_config: Dict[str, str] = config.get_object_type_config()
 endpoint_template: str = object_type_config['endpoint']
@@ -258,18 +262,21 @@ shutdown_requested: bool = False
 current_tip_being_processed: Optional[str] = None
 
 logger.info("="*80)
-logger.info(f"NOGGIN PROCESSOR - LOAD COMPLIANCE CHECK (DRIVER/LOADER)")
+logger.info(f"NOGGIN PROCESSOR - {object_type.upper()}")
 logger.info("="*80)
-logger.info(f"Session ID:       {batch_session_id}")
-logger.info(f"Object Type:      {object_type}")
-logger.info(f"Base Output Path: {base_path}")
+logger.info(f"Session ID:         {batch_session_id}")
+logger.info(f"Object Type:        {object_type}")
+logger.info(f"Abbreviation:       {abbreviation}")
+logger.info(f"Base Output Path:   {base_path}")
+logger.info(f"Folder Pattern:     {folder_pattern}")
+logger.info(f"Attachment Pattern: {attachment_pattern}")
 logger.info("="*80)
 
 session_logger.info(f"SESSION START: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
 session_logger.info(f"SESSION ID: {batch_session_id}")
 session_logger.info(f"OBJECT TYPE: {object_type}")
 session_logger.info("")
-session_logger.info("TIMESTAMP\tTIP\tLCD_INSPECTION_ID\tATTACHMENTS_COUNT\tATTACHMENT_FILENAMES")
+session_logger.info("TIMESTAMP\tTIP\tINSPECTION_ID\tATTACHMENTS_COUNT\tATTACHMENT_FILENAMES")
 
 class GracefulShutdownHandler:
     """Handles Ctrl+C and system shutdown signals"""
@@ -345,27 +352,17 @@ def flatten_json(nested_json: Dict[str, Any], parent_key: str = '', sep: str = '
             items.append((new_key, value))
     return dict(items)
 
-def create_inspection_folder_structure(date_str: str, lcd_inspection_id: str) -> Path:
-    """Create hierarchical folder structure for inspection.
+def create_inspection_folder_structure(date_str: str, inspection_id: str) -> Path:
+    """Create hierarchical folder structure for inspection using configured pattern.
 
-    Creates a folder structure based on the date and LCD inspection ID in the format:
-    base_path/year/month/YYYY-MM-DD inspection_id
-
-    If the date cannot be parsed, creates a folder under base_path/unknown_date/
+    Pattern placeholders: {abbreviation}, {year}, {month}, {date}, {inspection_id}
 
     Args:
-        date_str (str): Date string in ISO format (e.g. "2023-05-20" or "2023-05-20Z")
-        lcd_inspection_id (str): Unique identifier for the LCD inspection
+        date_str: Date string in ISO format (e.g. "2023-05-20" or "2023-05-20Z")
+        inspection_id: Unique identifier for the inspection
 
     Returns:
-        Path: Path object pointing to the created inspection folder
-
-    Raises:
-        None: Exceptions are caught and handled internally with fallback folder creation
-
-    Example:
-        >>> create_inspection_folder_structure("2023-05-20", "LCD123")
-        PosixPath('/base_path/2023/05/2023-05-20 LCD123')
+        Path object pointing to the created inspection folder
     """
     try:
         date_obj: datetime = datetime.fromisoformat(date_str.replace('Z', '+00:00'))
@@ -373,32 +370,48 @@ def create_inspection_folder_structure(date_str: str, lcd_inspection_id: str) ->
         month: str = f"{date_obj.month:02d}"
         formatted_date: str = date_obj.strftime('%Y-%m-%d')
 
-        folder_name: str = f"{formatted_date} {lcd_inspection_id}"
-        inspection_folder: Path = base_path / year / month / folder_name
+        # Substitute pattern placeholders
+        folder_path: str = folder_pattern.format(
+            abbreviation=abbreviation,
+            year=year,
+            month=month,
+            date=formatted_date,
+            inspection_id=inspection_id
+        )
+
+        inspection_folder: Path = base_path / folder_path
         inspection_folder.mkdir(parents=True, exist_ok=True)
         logger.debug(f"Created inspection folder: {inspection_folder}")
         return inspection_folder
     except (ValueError, AttributeError) as e:
         logger.warning(f"Could not parse date '{date_str}': {e}")
-        folder_name = f"unknown-date {lcd_inspection_id}"
-        fallback_folder: Path = base_path / "unknown_date" / folder_name
+        folder_name = f"unknown-date {inspection_id}"
+        fallback_folder: Path = base_path / abbreviation / "unknown_date" / folder_name
         fallback_folder.mkdir(parents=True, exist_ok=True)
         logger.info(f"Created fallback folder: {fallback_folder}")
         return fallback_folder
 
-def construct_attachment_filename(lcd_inspection_id: str, date_str: str, attachment_num: int) -> str:
-    """Construct standardised attachment filename"""
-    sanitised_lcd: str = sanitise_filename(lcd_inspection_id)
+def construct_attachment_filename(inspection_id: str, date_str: str, attachment_num: int) -> str:
+    """Construct attachment filename using configured pattern.
+    
+    Pattern placeholders: {abbreviation}, {inspection_id}, {date}, {stub}, {sequence}
+    """
+    sanitised_id: str = sanitise_filename(inspection_id)
 
     try:
         date_obj: datetime = datetime.fromisoformat(date_str.replace('Z', '+00:00'))
-        date_part: str = date_obj.strftime('%Y%m%d')
+        date_part: str = date_obj.strftime('%Y-%m-%d')
     except (ValueError, AttributeError):
         logger.warning(f"Could not parse date '{date_str}', using 'unknown'")
         date_part = "unknown"
 
-    attachment_num_str: str = f"{attachment_num:03d}"
-    filename: str = f"{sanitised_lcd}_{date_part}_{filename_image_stub}_{attachment_num_str}.jpg"
+    filename: str = attachment_pattern.format(
+        abbreviation=abbreviation,
+        inspection_id=sanitised_id,
+        date=date_part,
+        stub=filename_image_stub,
+        sequence=f"{attachment_num:03d}"
+    )
     return filename
 
 def calculate_md5_hash(file_path: Path) -> str:
@@ -1116,7 +1129,7 @@ def calculate_next_retry_time(retry_count: int) -> datetime:
 def get_tips_to_process_from_database(limit: int = 10) -> List[Dict[str, Any]]:
     """
     Query database for TIPs that need processing
-    Priority: failed → interrupted → partial → api_failed → pending
+    Priority: failed â†’ interrupted â†’ partial â†’ api_failed â†’ pending
     """
     max_retry_attempts: int = config.getint('retry', 'max_retry_attempts')
 
@@ -1573,4 +1586,3 @@ if __name__ == "__main__":
 
         session_logger.info(f"\nSESSION END: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
         session_logger.info(f"TOTAL EXECUTION TIME: {total_duration:.2f} seconds")
-
