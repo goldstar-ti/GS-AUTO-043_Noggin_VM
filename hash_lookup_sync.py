@@ -66,7 +66,7 @@ def get_default_paths() -> dict[str, Path]:
     Assumes script is in /home/noggin_admin/scripts/ and etl folder is a sibling.
     """
     script_dir = Path(__file__).parent.resolve()
-    etl_dir = script_dir / 'etl'
+    etl_dir = Path('/mnt/data/noggin/etl')
     
     return {
         'hash_sync_pending': etl_dir / 'hash_sync' / 'pending',

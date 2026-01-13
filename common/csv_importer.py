@@ -438,6 +438,8 @@ class CSVRowParser:
             '%m/%d/%Y',
             '%d %b %Y',       # 4 Jun 2024
             '%d %b %y',       # 4 Jun 24
+            '%d-%b-%Y',
+            '%d-%b-%y',
         ]
         
         for fmt in formats:
