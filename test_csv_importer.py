@@ -17,9 +17,17 @@ try:
     logger.info("Initialising CSV importer...")
     db_manager: DatabaseConnectionManager = DatabaseConnectionManager(config)
     csv_importer: CSVImporter = CSVImporter(config, db_manager)
+
+    logger.info(f"Input folder path: {csv_importer.input_folder}")
+    logger.info(f"Input folder exists: {csv_importer.input_folder.exists()}")
+   
+    csv_files = list(csv_importer.input_folder.glob('*.csv'))
+    logger.info(f"CSV files found: {csv_files}")
+
+    print("\n" * 2)
     
     logger.info("Scanning for CSV files in input folder...")
-    summary: Dict[str, Any] = csv_importer.scan_and_import_csv_files()
+    summary: Dict[str, Any] = csv_importer.scan_and_import()
     
     logger.info("CSV Import Summary:")
     logger.info(f"  Files processed: {summary['files_processed']}")

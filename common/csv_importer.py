@@ -380,12 +380,12 @@ class CSVRowParser:
         result['tip'] = tip
         result['object_type'] = self.preview_config.abbreviation
         
-        # Extract inspection ID
-        id_col = self.preview_config.id_column
-        if id_col in self._column_indices:
-            idx = self._column_indices[id_col]
-            if idx < len(row):
-                result['inspection_id'] = row[idx].strip() or None
+        # # Extract inspection ID
+        # id_col = self.preview_config.id_column
+        # if id_col in self._column_indices:
+        #     idx = self._column_indices[id_col]
+        #     if idx < len(row):
+        #         result['inspection_id'] = row[idx].strip() or None
         
         # Extract and convert date
         date_col = self.preview_config.date_column
@@ -514,12 +514,19 @@ class BatchInserter:
         except Exception as e:
             logger.error(f"Error checking existing TIPs: {e}")
             return set()
-    
+
     def _insert_batch(self, records: List[Dict[str, Any]]) -> int:
         """Insert a batch of records"""
         if not records:
             return 0
         
+        # --- FIX START: Add standard fields BEFORE calculating columns ---
+        current_time = datetime.now()
+        for record in records:
+            record['processing_status'] = 'csv_imported'
+            record['csv_imported_at'] = current_time
+        # --- FIX END ---
+
         # Collect all columns used across records
         all_columns = set()
         for record in records:
@@ -541,10 +548,7 @@ class BatchInserter:
         
         inserted = 0
         for record in records:
-            # Add standard fields
-            record['processing_status'] = 'csv_imported'
-            record['csv_imported_at'] = datetime.now()
-            
+            # Fields are already added above, so we just get the values now
             values = tuple(record.get(col) for col in ordered_columns)
             
             try:
@@ -555,6 +559,47 @@ class BatchInserter:
                 logger.error(f"Insert failed for TIP {record.get('tip', 'unknown')[:16]}...: {e}")
         
         return inserted
+    
+    # def _insert_batch(self, records: List[Dict[str, Any]]) -> int:
+    #     """Insert a batch of records"""
+    #     if not records:
+    #         return 0
+        
+    #     # Collect all columns used across records
+    #     all_columns = set()
+    #     for record in records:
+    #         all_columns.update(record.keys())
+        
+    #     # Order columns consistently, ensuring tip and object_type are first
+    #     priority_cols = ['tip', 'object_type', 'processing_status', 'csv_imported_at']
+    #     ordered_columns = [c for c in priority_cols if c in all_columns]
+    #     ordered_columns.extend(sorted(c for c in all_columns if c not in priority_cols))
+        
+    #     column_list = ', '.join(ordered_columns)
+    #     placeholders = ', '.join(['%s'] * len(ordered_columns))
+        
+    #     insert_sql = f"""
+    #         INSERT INTO noggin_data ({column_list})
+    #         VALUES ({placeholders})
+    #         ON CONFLICT (tip) DO NOTHING
+    #     """
+        
+    #     inserted = 0
+    #     for record in records:
+    #         # Add standard fields
+    #         record['processing_status'] = 'csv_imported'
+    #         record['csv_imported_at'] = datetime.now()
+            
+    #         values = tuple(record.get(col) for col in ordered_columns)
+            
+    #         try:
+    #             result = self.db_manager.execute_update(insert_sql, values)
+    #             if result > 0:
+    #                 inserted += 1
+    #         except Exception as e:
+    #             logger.error(f"Insert failed for TIP {record.get('tip', 'unknown')[:16]}...: {e}")
+        
+    #     return inserted
     
     def get_stats(self) -> Dict[str, int]:
         """Get insertion statistics"""
