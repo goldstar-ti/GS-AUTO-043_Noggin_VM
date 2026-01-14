@@ -28,7 +28,6 @@ from processors import ObjectProcessor
 
 logger = logging.getLogger(__name__)
 
-# Map abbreviations to config files
 CONFIG_FILES = {
     'LCD': 'config/load_compliance_check_driver_loader_config.ini',
     'LCS': 'config/load_compliance_check_supervisor_manager_config.ini',
@@ -38,7 +37,6 @@ CONFIG_FILES = {
     'TA': 'config/trailer_audits_config.ini',
 }
 
-# Full names for help text
 OBJECT_TYPE_NAMES = {
     'LCD': 'Load Compliance Check (Driver/Loader)',
     'LCS': 'Load Compliance Check (Supervisor/Manager)',

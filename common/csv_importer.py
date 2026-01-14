@@ -370,6 +370,11 @@ class CSVRowParser:
         Returns:
             Dictionary with database column names as keys
         """
+
+        # clean all incoming fields.
+        row = [val.strip() for val in row]
+
+        
         result: Dict[str, Any] = {}
         
         # TIP is always first column
@@ -379,13 +384,6 @@ class CSVRowParser:
         
         result['tip'] = tip
         result['object_type'] = self.preview_config.abbreviation
-        
-        # # Extract inspection ID
-        # id_col = self.preview_config.id_column
-        # if id_col in self._column_indices:
-        #     idx = self._column_indices[id_col]
-        #     if idx < len(row):
-        #         result['inspection_id'] = row[idx].strip() or None
         
         # Extract and convert date
         date_col = self.preview_config.date_column
@@ -524,19 +522,18 @@ class BatchInserter:
         if not records:
             return 0
         
-        # --- FIX START: Add standard fields BEFORE calculating columns ---
+        # Add standard fields
         current_time = datetime.now()
         for record in records:
             record['processing_status'] = 'csv_imported'
             record['csv_imported_at'] = current_time
-        # --- FIX END ---
 
         # Collect all columns used across records
         all_columns = set()
         for record in records:
             all_columns.update(record.keys())
         
-        # Order columns consistently, ensuring tip and object_type are first
+        # Order columns consistently
         priority_cols = ['tip', 'object_type', 'processing_status', 'csv_imported_at']
         ordered_columns = [c for c in priority_cols if c in all_columns]
         ordered_columns.extend(sorted(c for c in all_columns if c not in priority_cols))
@@ -552,7 +549,6 @@ class BatchInserter:
         
         inserted = 0
         for record in records:
-            # Fields are already added above, so we just get the values now
             values = tuple(record.get(col) for col in ordered_columns)
             
             try:
@@ -563,47 +559,6 @@ class BatchInserter:
                 logger.error(f"Insert failed for TIP {record.get('tip', 'unknown')[:16]}...: {e}")
         
         return inserted
-    
-    # def _insert_batch(self, records: List[Dict[str, Any]]) -> int:
-    #     """Insert a batch of records"""
-    #     if not records:
-    #         return 0
-        
-    #     # Collect all columns used across records
-    #     all_columns = set()
-    #     for record in records:
-    #         all_columns.update(record.keys())
-        
-    #     # Order columns consistently, ensuring tip and object_type are first
-    #     priority_cols = ['tip', 'object_type', 'processing_status', 'csv_imported_at']
-    #     ordered_columns = [c for c in priority_cols if c in all_columns]
-    #     ordered_columns.extend(sorted(c for c in all_columns if c not in priority_cols))
-        
-    #     column_list = ', '.join(ordered_columns)
-    #     placeholders = ', '.join(['%s'] * len(ordered_columns))
-        
-    #     insert_sql = f"""
-    #         INSERT INTO noggin_data ({column_list})
-    #         VALUES ({placeholders})
-    #         ON CONFLICT (tip) DO NOTHING
-    #     """
-        
-    #     inserted = 0
-    #     for record in records:
-    #         # Add standard fields
-    #         record['processing_status'] = 'csv_imported'
-    #         record['csv_imported_at'] = datetime.now()
-            
-    #         values = tuple(record.get(col) for col in ordered_columns)
-            
-    #         try:
-    #             result = self.db_manager.execute_update(insert_sql, values)
-    #             if result > 0:
-    #                 inserted += 1
-    #         except Exception as e:
-    #             logger.error(f"Insert failed for TIP {record.get('tip', 'unknown')[:16]}...: {e}")
-        
-    #     return inserted
     
     def get_stats(self) -> Dict[str, int]:
         """Get insertion statistics"""
@@ -631,13 +586,14 @@ class CSVFileProcessor:
     def process(self) -> ImportResult:
         """
         Process the CSV file and import records.
-        
-        Returns:
-            ImportResult with import statistics
         """
         result = ImportResult(filename=self.file_path.name, object_type='Unknown')
         
+        # NOTE: Pandas sanitisation is handled by CSVImporter before calling this.
+        # We assume file_path now points to a clean, UTF-8 CSV.
+        
         try:
+            # encoding='utf-8-sig' handles any BOM leftover if pandas didn't run
             with open(self.file_path, 'r', encoding='utf-8-sig') as f:
                 reader = csv.reader(f)
                 headers = next(reader, None)
@@ -646,7 +602,6 @@ class CSVFileProcessor:
                     result.error_message = "CSV file has no headers"
                     return result
                 
-                # Detect object type
                 object_config = detect_object_type_from_headers(headers)
                 if not object_config:
                     result.error_message = f"Could not detect object type from headers: {headers[:5]}"
@@ -655,22 +610,15 @@ class CSVFileProcessor:
                 result.object_type = object_config.abbreviation
                 logger.info(f"Detected object type: {object_config.abbreviation} ({object_config.full_name})")
                 
-                # Load preview field config
                 preview_config = self.preview_config_loader.load_config(object_config.abbreviation)
-                
-                # Create row parser
                 row_parser = CSVRowParser(headers, preview_config, self.hash_resolver)
-                
-                # Create batch inserter
                 inserter = BatchInserter(self.db_manager, self.batch_size)
                 
-                # Process rows
                 for row_num, row in enumerate(reader, start=2):
                     if not row or not row[0].strip():
                         continue
                     
                     result.total_rows += 1
-                    
                     try:
                         parsed = row_parser.parse_row(row)
                         if parsed:
@@ -679,9 +627,7 @@ class CSVFileProcessor:
                         logger.warning(f"Row {row_num}: Parse error - {e}")
                         result.error_count += 1
                 
-                # Flush remaining records
                 inserter.flush()
-                
                 stats = inserter.get_stats()
                 result.imported_count = stats['inserted']
                 result.duplicate_count = stats['duplicates']
@@ -707,23 +653,9 @@ class CSVImporter:
     
     Scans input folder for CSV files, auto-detects object types,
     and imports records with preview field extraction and hash resolution.
-    
-    Example usage:
-        importer = CSVImporter(config, db_manager)
-        summary = importer.scan_and_import()
-        
-        # Or import a specific file
-        result = importer.import_file(Path('/path/to/file.csv'))
     """
     
     def __init__(self, config: 'ConfigLoader', db_manager: 'DatabaseConnectionManager') -> None:
-        """
-        Initialise the CSV importer.
-        
-        Args:
-            config: ConfigLoader instance for reading paths and settings
-            db_manager: DatabaseConnectionManager instance for database operations
-        """
         self.config = config
         self.db_manager = db_manager
         
@@ -758,6 +690,23 @@ class CSVImporter:
                 error_message=f"File not found: {file_path}"
             )
         
+        # --- EXCEL WORKAROUND START ---
+        # Detect if we have pandas to sanitize the input file
+        try:
+            import pandas as pd
+            # engine='python' is more robust for auto-detecting weird separators
+            # dtype=str prevents pandas from mangling IDs (e.g. 00123 -> 123)
+            df = pd.read_csv(file_path, dtype=str, engine='python')
+            
+            # Rewrite as clean UTF-8 CSV (removes BOM, normalises delimiters)
+            df.to_csv(file_path, index=False, encoding='utf-8')
+            logger.info(f"Sanitised CSV with pandas (BOM removed): {file_path.name}")
+        except ImportError:
+            logger.warning("Pandas not installed. Skipping Excel BOM workaround.")
+        except Exception as e:
+            logger.warning(f"Failed to sanitise CSV with pandas: {e}")
+        # --- EXCEL WORKAROUND END ---
+        
         logger.info(f"Importing CSV file: {file_path.name}")
         
         processor = CSVFileProcessor(
@@ -773,9 +722,6 @@ class CSVImporter:
     def scan_and_import(self) -> Dict[str, Any]:
         """
         Scan input folder and import all CSV files.
-        
-        Returns:
-            Dictionary with overall import statistics
         """
         csv_files = list(self.input_folder.glob('*.csv'))
         
@@ -798,14 +744,12 @@ class CSVImporter:
             result = self.import_file(csv_file)
             results.append(result)
             
-            # Move file based on result
             if result.success:
                 self._move_file(csv_file, self.processed_folder)
             else:
                 self._move_file(csv_file, self.error_folder)
                 logger.error(f"Import failed for {csv_file.name}: {result.error_message}")
         
-        # Log hash resolver stats
         cache_stats = self.hash_resolver.get_cache_stats()
         logger.info(
             f"Hash resolver stats: {cache_stats['cache_size']} cached, "
@@ -846,17 +790,8 @@ class CSVImporter:
             return None
 
 
-# Legacy function for backward compatibility
 def detect_object_type(headers: List[str]) -> Optional[str]:
-    """
-    Detect object type from CSV headers (legacy compatibility).
-    
-    Args:
-        headers: List of column headers
-        
-    Returns:
-        Object type abbreviation or None
-    """
+    """Legacy compatibility"""
     config = detect_object_type_from_headers(headers)
     return config.abbreviation if config else None
 
