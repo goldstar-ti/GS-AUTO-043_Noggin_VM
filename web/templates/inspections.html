@@ -2,32 +2,173 @@
 
 {% block title %}Inspections - Noggin Processor{% endblock %}
 
+{% block extra_css %}
+<style>
+    .filter-panel {
+        background: white;
+        padding: 1.5rem;
+        border-radius: 8px;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        margin-bottom: 2rem;
+    }
+
+    .filter-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 1rem;
+        margin-bottom: 1rem;
+    }
+
+    .filter-group {
+        display: flex;
+        flex-direction: column;
+    }
+
+    .filter-group label {
+        font-size: 0.85rem;
+        font-weight: 600;
+        color: #666;
+        margin-bottom: 0.4rem;
+    }
+
+    .filter-group input, 
+    .filter-group select {
+        padding: 0.6rem;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        font-size: 0.95rem;
+        width: 100%;
+    }
+
+    .filter-actions {
+        display: flex;
+        justify-content: flex-end;
+        gap: 0.5rem;
+        padding-top: 1rem;
+        border-top: 1px solid #eee;
+    }
+
+    .btn-primary {
+        background: #3498db;
+        color: white;
+        border: none;
+        padding: 0.6rem 1.2rem;
+        border-radius: 4px;
+        cursor: pointer;
+        font-weight: 500;
+    }
+    
+    .btn-secondary {
+        background: #f8f9fa;
+        color: #444;
+        border: 1px solid #ddd;
+        padding: 0.6rem 1.2rem;
+        border-radius: 4px;
+        text-decoration: none;
+    }
+
+    .btn-primary:hover { background: #2980b9; }
+    .btn-secondary:hover { background: #e2e6ea; }
+
+    .badge { padding: 4px 8px; border-radius: 12px; font-size: 0.8em; }
+    .badge.success { background: #d4edda; color: #155724; }
+    .badge.info { background: #d1ecf1; color: #0c5460; }
+    .badge.danger { background: #f8d7da; color: #721c24; }
+    .badge.warning { background: #fff3cd; color: #856404; }
+</style>
+{% endblock %}
+
 {% block content %}
-<div class="card">
-    <h2>Inspections</h2>
-    
-    <form class="filter-form" method="get">
-        <input type="text" name="search" placeholder="Search LCD ID, vehicle, trailer..." value="{{ search }}">
-        <select name="status">
-            <option value="">All Statuses</option>
-            <option value="complete" {% if status == 'complete' %}selected{% endif %}>Complete</option>
-            <option value="pending" {% if status == 'pending' %}selected{% endif %}>Pending</option>
-            <option value="failed" {% if status == 'failed' %}selected{% endif %}>Failed</option>
-            <option value="partial" {% if status == 'partial' %}selected{% endif %}>Partial</option>
-        </select>
-        <button type="submit" class="btn">Filter</button>
+<div class="filter-panel">
+    <h3>🔍 Search & Filter</h3>
+    <form method="get" action="{{ url_for('inspections') }}">
+        <div class="filter-grid">
+            
+            <!-- Object Type -->
+            <div class="filter-group">
+                <label>Object Type</label>
+                <select name="object_type">
+                    <option value="">All Types</option>
+                    {% for type in options.object_types %}
+                        <option value="{{ type }}" {% if filters.object_type == type %}selected{% endif %}>
+                            {{ type }}
+                        </option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <!-- Vehicle (Datalist for searchability) -->
+            <div class="filter-group">
+                <label>Vehicle</label>
+                <input list="vehicles" name="vehicle" placeholder="e.g. V001" value="{{ filters.vehicle }}">
+                <datalist id="vehicles">
+                    {% for v in options.vehicles %}
+                        <option value="{{ v }}">
+                    {% endfor %}
+                </datalist>
+            </div>
+
+            <!-- Trailer -->
+            <div class="filter-group">
+                <label>Trailer</label>
+                <input type="text" name="trailer" placeholder="e.g. T100" value="{{ filters.trailer }}">
+            </div>
+
+            <!-- Processing Status -->
+            <div class="filter-group">
+                <label>Status</label>
+                <select name="status">
+                    <option value="">All Statuses</option>
+                    <option value="complete" {% if filters.status == 'complete' %}selected{% endif %}>Complete</option>
+                    <option value="pending" {% if filters.status == 'pending' %}selected{% endif %}>Pending</option>
+                    <option value="failed" {% if filters.status == 'failed' %}selected{% endif %}>Failed</option>
+                </select>
+            </div>
+
+            <!-- Date Range From -->
+            <div class="filter-group">
+                <label>From Date</label>
+                <input type="date" name="date_from" value="{{ filters.date_from }}">
+            </div>
+
+            <!-- Date Range To -->
+            <div class="filter-group">
+                <label>To Date</label>
+                <input type="date" name="date_to" value="{{ filters.date_to }}">
+            </div>
+            
+            <!-- General Search -->
+            <div class="filter-group" style="grid-column: 1 / -1;">
+                <label>Keyword Search (LCD ID, Team, Department, etc)</label>
+                <input type="text" name="search" placeholder="Type to search..." value="{{ filters.search_text }}">
+            </div>
+
+        </div>
+
+        <div class="filter-actions">
+            <a href="{{ url_for('inspections') }}" class="btn-secondary">Reset Filters</a>
+            <button type="submit" class="btn-primary">Apply Filters</button>
+        </div>
     </form>
-    
-    <p>Showing {{ inspections|length }} of {{ total }} inspections</p>
-    
+</div>
+
+<div class="card">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+        <h3>Results ({{ total }})</h3>
+        {% if filters.object_type or filters.vehicle or filters.date_from %}
+            <span class="badge info">Filters Active</span>
+        {% endif %}
+    </div>
+
     <table>
         <thead>
             <tr>
-                <th>LCD ID</th>
+                <th>Type</th>
+                <th>Reference / ID</th>
                 <th>Date</th>
                 <th>Vehicle</th>
                 <th>Trailer</th>
-                <th>Department</th>
+                <th>Team/Dept</th>
                 <th>Status</th>
                 <th>Attachments</th>
                 <th>Actions</th>
@@ -36,23 +177,33 @@
         <tbody>
             {% for inspection in inspections %}
             <tr>
-                <td>{{ inspection.noggin_reference or 'N/A' }}</td>
-                <td>{{ inspection.inspection_date.strftime('%Y-%m-%d') if inspection.inspection_date else 'N/A' }}</td>
-                <td>{{ inspection.vehicle or 'N/A' }}</td>
-                <td>{{ inspection.trailer or 'N/A' }}</td>
-                <td>{{ inspection.department or 'N/A' }}</td>
+                <td><strong>{{ inspection.object_type }}</strong></td>
+                <td>{{ inspection.noggin_reference or inspection.record_tip }}</td>
+                <td>{{ inspection.inspection_date.strftime('%d-%m-%Y') if inspection.inspection_date else 'N/A' }}</td>
+                <td>{{ inspection.vehicle or '-' }}</td>
+                <td>{{ inspection.trailer or '-' }}</td>
+                <td>
+                    <small>{{ inspection.team or '' }}</small><br>
+                    <small class="text-muted">{{ inspection.department or '' }}</small>
+                </td>
                 <td>
                     {% set status_class = {
                         'complete': 'success',
                         'pending': 'info',
                         'failed': 'danger',
                         'partial': 'warning'
-                    }.get(inspection.processing_status, 'secondary') %}
+                    }.get(inspection.processing_status.lower(), 'secondary') %}
                     <span class="badge {{ status_class }}">{{ inspection.processing_status }}</span>
                 </td>
                 <td>{{ inspection.completed_attachment_count or 0 }} / {{ inspection.total_attachments or 0 }}</td>
                 <td>
-                    <a href="{{ url_for('inspection_detail', tip=inspection.tip) }}" class="btn">View</a>
+                    <a href="{{ url_for('inspection_detail', tip=inspection.record_tip) }}" class="btn">View</a>
+                </td>
+            </tr>
+            {% else %}
+            <tr>
+                <td colspan="9" style="text-align: center; padding: 2rem;">
+                    No records found matching your criteria.
                 </td>
             </tr>
             {% endfor %}
@@ -62,21 +213,13 @@
     {% if total_pages > 1 %}
     <div class="pagination">
         {% if page > 1 %}
-            <a href="?page={{ page - 1 }}&status={{ status }}&search={{ search }}">← Previous</a>
+            <a href="{{ url_for('inspections', page=page-1, **filters) }}">← Previous</a>
         {% endif %}
         
-        {% for p in range(1, total_pages + 1) %}
-            {% if p == page %}
-                <a href="#" class="active">{{ p }}</a>
-            {% elif p <= 3 or p > total_pages - 3 or (p >= page - 2 and p <= page + 2) %}
-                <a href="?page={{ p }}&status={{ status }}&search={{ search }}">{{ p }}</a>
-            {% elif p == 4 or p == total_pages - 3 %}
-                <span>...</span>
-            {% endif %}
-        {% endfor %}
+        <span style="padding: 0.5rem 1rem;">Page {{ page }} of {{ total_pages }}</span>
         
         {% if page < total_pages %}
-            <a href="?page={{ page + 1 }}&status={{ status }}&search={{ search }}">Next →</a>
+            <a href="{{ url_for('inspections', page=page+1, **filters) }}">Next →</a>
         {% endif %}
     </div>
     {% endif %}
