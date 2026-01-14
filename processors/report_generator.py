@@ -49,8 +49,17 @@ class ReportGenerator:
         self.unknown_text: str = config.get('output', 'unknown_response_output_text',
                                             fallback='Unknown', from_specific=True)
         
+        # Date format for reports
+        self.date_format: str = config.get('report', 'date_format', fallback='%Y-%m-%d')
+        
         # Parse field mappings for hash resolution
         self.field_mappings = config.get_field_mappings()
+        
+        # Build set of date field names for quick lookup
+        self.date_fields: set = {'date'}
+        for api_field, (db_column, field_type, hash_type) in self.field_mappings.items():
+            if field_type == 'datetime':
+                self.date_fields.add(api_field)
         
         logger.debug(f"ReportGenerator initialised for {self.abbreviation}")
     
@@ -94,7 +103,12 @@ class ReportGenerator:
         for key, value in response_data.items():
             if key == '$meta':
                 continue
-            context[key] = value if value is not None else self.unknown_text
+            
+            # Format date fields
+            if key in self.date_fields and value:
+                context[key] = self._format_date(value)
+            else:
+                context[key] = value if value is not None else self.unknown_text
         
         # Process hash fields and add resolved values
         tip_value = response_data.get('$meta', {}).get('tip', '')
@@ -114,6 +128,35 @@ class ReportGenerator:
                 context[f"{base_name}_resolved"] = resolved
         
         return context
+    
+    def _format_date(self, date_value: str) -> str:
+        """
+        Format ISO date string to configured format.
+        
+        Args:
+            date_value: ISO format date string (e.g., '2025-11-28T00:00:00.000+08:00')
+            
+        Returns:
+            Formatted date string or original if parsing fails
+        """
+        if not date_value or not isinstance(date_value, str):
+            return str(date_value) if date_value else self.unknown_text
+        
+        try:
+            # Handle various ISO formats
+            clean_date = date_value.replace('Z', '+00:00')
+            
+            # Try parsing with timezone
+            if '+' in clean_date or '-' in clean_date[10:]:
+                # Has timezone info
+                parsed = datetime.fromisoformat(clean_date)
+            else:
+                parsed = datetime.fromisoformat(clean_date)
+            
+            return parsed.strftime(self.date_format)
+        except (ValueError, AttributeError) as e:
+            logger.debug(f"Could not parse date '{date_value}': {e}")
+            return date_value
     
     def _process_template(self, template: str, context: Dict[str, Any]) -> str:
         """Process template with context substitution"""
@@ -266,7 +309,16 @@ class DefaultReportGenerator:
         self.unknown_text: str = config.get('output', 'unknown_response_output_text',
                                             fallback='Unknown', from_specific=True)
         
+        # Date format for reports
+        self.date_format: str = config.get('report', 'date_format', fallback='%Y-%m-%d')
+        
         self.field_mappings = config.get_field_mappings()
+        
+        # Build set of date field names
+        self.date_fields: set = {'date'}
+        for api_field, (db_column, field_type, hash_type) in self.field_mappings.items():
+            if field_type == 'datetime':
+                self.date_fields.add(api_field)
     
     def generate_report(self, response_data: Dict[str, Any],
                        inspection_id: str) -> str:
@@ -298,6 +350,8 @@ class DefaultReportGenerator:
                 lines.append(f"{display_name}: {resolved}")
             elif field_type == 'bool':
                 lines.append(f"{display_name}: {'Yes' if value else 'No'}")
+            elif field_type == 'datetime' or api_field in self.date_fields:
+                lines.append(f"{display_name}: {self._format_date(value)}")
             else:
                 lines.append(f"{display_name}: {value}")
         
@@ -326,6 +380,18 @@ class DefaultReportGenerator:
         spaced = re.sub(r'([A-Z]+)([A-Z][a-z])', r'\1 \2', spaced)
         # Title case and strip
         return spaced.strip().title()
+    
+    def _format_date(self, date_value: str) -> str:
+        """Format ISO date string to configured format"""
+        if not date_value or not isinstance(date_value, str):
+            return str(date_value) if date_value else self.unknown_text
+        
+        try:
+            clean_date = date_value.replace('Z', '+00:00')
+            parsed = datetime.fromisoformat(clean_date)
+            return parsed.strftime(self.date_format)
+        except (ValueError, AttributeError):
+            return date_value
     
     def save_report(self, report: str, inspection_folder: Path,
                    inspection_id: str) -> Optional[Path]:
