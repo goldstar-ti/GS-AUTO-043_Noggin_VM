@@ -452,7 +452,8 @@ class FolderManager:
         try:
             if date_str:
                 date_obj = datetime.fromisoformat(date_str.replace('Z', '+00:00'))
-                date_formatted: str = date_obj.strftime('%Y%m%d')
+                # date_formatted: str = date_obj.strftime('%Y%m%d')
+                date_formatted: str = date_obj.strftime('%d %b %Y') # e.g., 25 Dec 2023
             else:
                 raise ValueError("Empty date")
         except (ValueError, AttributeError):

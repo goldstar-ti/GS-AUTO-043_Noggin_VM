@@ -2,6 +2,7 @@ from common import ConfigLoader, LoggerManager, DatabaseConnectionManager, CSVIm
 import logging
 from typing import Dict, Any
 import sys
+from datetime import datetime
 
 config: ConfigLoader = ConfigLoader('config/base_config.ini')
 
@@ -15,7 +16,7 @@ try:
     db_manager: DatabaseConnectionManager = DatabaseConnectionManager(config)
 
     # --- TRUNCATION PROMPT START ---
-    print("\n" + "="*60)
+    print("\n" + "="*100)
     print(" DATABASE CLEANUP OPTIONS")
     print("="*60)
     print("Tables to be truncated:")
@@ -24,7 +25,7 @@ try:
     print(" - noggin_schema.processing_errors")
     print(" - noggin_schema.session_log")
     print(" - noggin_schema.unknown_hashes")
-    print("-" * 60)
+    print("-" * 100)
     
     user_response = input(">>> Do you want to TRUNCATE these tables before importing? (y/n): ").strip().lower()
     
@@ -42,7 +43,6 @@ try:
             # Add schema prefix
             fq_tables = [f"noggin_schema.{t}" for t in tables]
             
-            # TRUNCATE ... CASCADE handles foreign keys; RESTART IDENTITY resets ID counters
             query = f"TRUNCATE TABLE {', '.join(fq_tables)} CASCADE;"
             
             db_manager.execute_update(query)
@@ -60,11 +60,44 @@ try:
     csv_importer: CSVImporter = CSVImporter(config, db_manager)
 
     logger.info(f"Input folder path: {csv_importer.input_folder}")
-    logger.info(f"Input folder exists: {csv_importer.input_folder.exists()}")
+logger.info(f"Input folder exists: {csv_importer.input_folder.exists()}")
    
-    csv_files = list(csv_importer.input_folder.glob('*.csv'))
-    logger.info(f"CSV files found: {csv_files}")
+    csv_files = sorted(list(csv_importer.input_folder.glob('*.csv')))
 
+    if csv_files:
+        file_details = []
+        for f in csv_files:
+            mtime = datetime.fromtimestamp(f.stat().st_mtime).strftime('%Y-%m-%d %H:%M:%S') # modification time
+            
+            header_preview = "<Unable to read>"
+            bom_warning = ""
+            
+            try:
+                # Read as standard UTF-8 so we can SEE the BOM
+                with open(f, 'r', encoding='utf-8') as f_obj:
+                    raw_line = f_obj.readline()
+                    
+                    if raw_line.startswith('\ufeff'):
+                        bom_warning = "    [!] WARNING: BOM (Byte Order Mark) Detected\n"
+                        # Strip it for the display so the header text is clean
+                        header_preview = raw_line.lstrip('\ufeff').strip()
+                    else:
+                        header_preview = raw_line.strip()
+                        
+                    if not header_preview:
+                        header_preview = "<Empty File>"
+                        
+            except Exception as e:
+                header_preview = f"<Error: {e}>"
+
+            # Format the entry
+            file_details.append(f"  - File:     {f.name}\n    Modified: {mtime}\n{bom_warning}    Header:   {header_preview}")
+            
+        files_formatted = "\n\n".join(file_details)
+        logger.info(f"Found {len(csv_files)} CSV files to process:\n{files_formatted}")
+    else:
+        else:
+            logger.info(f"No CSV files found in: {csv_importer.input_folder}")
     print("\n")
     
     logger.info("Scanning for CSV files in input folder...")
