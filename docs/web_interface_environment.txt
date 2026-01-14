@@ -1,0 +1,44 @@
+=== 1. CHECKING SYSTEMD SERVICE ===
+Found noggin-web.service:
+[Unit]
+Description=Noggin Web Interface
+After=network.target postgresql.service
+
+[Service]
+Type=notify
+User=noggin_admin
+Group=noggin_admin
+WorkingDirectory=/home/noggin_admin/scripts/web
+Environment="PATH=/home/noggin_admin/scripts/.venv/bin"
+ExecStart=/home/noggin_admin/scripts/.venv/bin/gunicorn \
+    --workers 4 \
+    --bind 127.0.0.1:5000 \
+    --timeout 120 \
+    --access-logfile /mnt/data/noggin/log/web-access.log \
+    --error-logfile /mnt/data/noggin/log/web-error.log \
+    app:app
+
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target
+
+=== 2. CHECKING RUNNING PYTHON/GUNICORN PROCESSES ===
+root         793  0.0  0.1 109684  3964 ?        Ssl   2025   0:00 /usr/bin/python3 /usr/share/unattended-upgrades/unattended-upgrade-shutdown --wait-for-signal
+noggin_+ 3179040  0.0  0.1  33916  5248 ?        Ss   Jan13   0:13 /home/noggin_admin/scripts/.venv/bin/python3 /home/noggin_admin/scripts/.venv/bin/gunicorn --workers 4 --bind 127.0.0.1:5000 --timeout 120 --access-logfile /mnt/data/noggin/log/web-access.log --error-logfile /mnt/data/noggin/log/web-error.log app:app
+noggin_+ 3179041  0.0  0.1  53524  5428 ?        S    Jan13   0:00 /home/noggin_admin/scripts/.venv/bin/python3 /home/noggin_admin/scripts/.venv/bin/gunicorn --workers 4 --bind 127.0.0.1:5000 --timeout 120 --access-logfile /mnt/data/noggin/log/web-access.log --error-logfile /mnt/data/noggin/log/web-error.log app:app
+noggin_+ 3179042  0.0  0.1  53532  5428 ?        S    Jan13   0:00 /home/noggin_admin/scripts/.venv/bin/python3 /home/noggin_admin/scripts/.venv/bin/gunicorn --workers 4 --bind 127.0.0.1:5000 --timeout 120 --access-logfile /mnt/data/noggin/log/web-access.log --error-logfile /mnt/data/noggin/log/web-error.log app:app
+noggin_+ 3179043  0.0  0.1  53532  5428 ?        S    Jan13   0:00 /home/noggin_admin/scripts/.venv/bin/python3 /home/noggin_admin/scripts/.venv/bin/gunicorn --workers 4 --bind 127.0.0.1:5000 --timeout 120 --access-logfile /mnt/data/noggin/log/web-access.log --error-logfile /mnt/data/noggin/log/web-error.log app:app
+noggin_+ 3179044  0.0  0.1  53532  5428 ?        S    Jan13   0:00 /home/noggin_admin/scripts/.venv/bin/python3 /home/noggin_admin/scripts/.venv/bin/gunicorn --workers 4 --bind 127.0.0.1:5000 --timeout 120 --access-logfile /mnt/data/noggin/log/web-access.log --error-logfile /mnt/data/noggin/log/web-error.log app:app
+noggin_+ 3738567  0.0  0.0   5732   180 ?        S    Jan14   0:00 /home/noggin_admin/.vscode-server/extensions/ms-python.vscode-python-envs-1.16.0-linux-x64/python-env-tools/bin/pet server
+noggin_+ 3739537  0.6 21.6 17121252 849360 ?     Sl   Jan14   5:47 /home/noggin_admin/.vscode-server/bin/994fd12f8d3a5aa16f17d42c041e5809167e845a/node /home/noggin_admin/.vscode-server/extensions/ms-python.vscode-pylance-2025.10.4/dist/server.bundle.js --cancellationReceive=file:82cf19da16bf6d116cbbd81c053870b12779737756 --node-ipc --clientProcessId=3738327
+noggin_+ 3884735  3.2  1.7 112560 69748 pts/5    S+   Jan14  20:52 python3 noggin_processor_unified.py LCD --database
+
+=== 3. CHECKING LISTENING PORTS ===
+[sudo] password for noggin_admin: 
+LISTEN 0      2048       127.0.0.1:5000       0.0.0.0:*    users:(("gunicorn",pid=3179044,fd=7),("gunicorn",pid=3179043,fd=7),("gunicorn",pid=3179042,fd=7),("gunicorn",pid=3179041,fd=7),("gunicorn",pid=3179040,fd=7))
+LISTEN 0      511                *:443              *:*    users:(("apache2",pid=4161504,fd=6),("apache2",pid=4161503,fd=6),("apache2",pid=3178142,fd=6))                                                               
+LISTEN 0      511                *:80               *:*    users:(("apache2",pid=4161504,fd=4),("apache2",pid=4161503,fd=4),("apache2",pid=3178142,fd=4))                                                               
+
+=== 4. CHECKING NGINX/APACHE CONFIG (If Applicable) ===
