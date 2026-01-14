@@ -251,7 +251,7 @@ class ObjectProcessor:
         
         while self.shutdown_handler.should_continue():
             # Get batch of TIPs
-            tips = self.record_manager.get_tips_to_process(self.object_type, batch_size)
+            tips = self.record_manager.get_tips_to_process(self.abbreviation, batch_size)
             
             if not tips:
                 logger.info("No TIPs to process in queue")

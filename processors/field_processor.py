@@ -248,6 +248,15 @@ class DatabaseRecordManager:
         'api_meta_errors', 'api_meta_raw', 'api_payload_raw', 'raw_json'
     ]
     
+    # Statuses eligible for processing
+    PROCESSABLE_STATUSES = [
+        'pending',
+        'csv_imported',
+        'api_error',
+        'partial',
+        'failed',
+    ]
+    
     def __init__(self, db_manager: 'DatabaseConnectionManager', 
                  field_processor: FieldProcessor) -> None:
         self.db_manager = db_manager
@@ -373,28 +382,32 @@ class DatabaseRecordManager:
             (tip_value, error_type, error_message, json.dumps(error_details or {}))
         )
     
-    def get_tips_to_process(self, object_type: str, limit: int = 10) -> List[Dict[str, Any]]:
+    def get_tips_to_process(self, abbreviation: str, limit: int = 10) -> List[Dict[str, Any]]:
         """Get TIPs eligible for processing"""
-        return self.db_manager.execute_query_dict(
-            """
+        # Build status placeholders for IN clause
+        status_placeholders = ', '.join(['%s'] * len(self.PROCESSABLE_STATUSES))
+        
+        query = f"""
             SELECT tip, retry_count, processing_status
             FROM noggin_data
             WHERE object_type = %s
-              AND processing_status IN ('pending', 'api_error', 'partial', 'failed')
+              AND processing_status IN ({status_placeholders})
               AND (next_retry_at IS NULL OR next_retry_at <= CURRENT_TIMESTAMP)
               AND permanently_failed = FALSE
             ORDER BY 
                 CASE processing_status
                     WHEN 'pending' THEN 1
-                    WHEN 'partial' THEN 2
-                    WHEN 'api_error' THEN 3
-                    WHEN 'failed' THEN 4
+                    WHEN 'csv_imported' THEN 2
+                    WHEN 'partial' THEN 3
+                    WHEN 'api_error' THEN 4
+                    WHEN 'failed' THEN 5
                 END,
                 csv_imported_at ASC
             LIMIT %s
-            """,
-            (object_type, limit)
-        )
+        """
+        
+        params = (abbreviation, *self.PROCESSABLE_STATUSES, limit)
+        return self.db_manager.execute_query_dict(query, params)
     
     def mark_permanently_failed(self, tip_value: str, reason: str) -> None:
         """Mark a TIP as permanently failed"""
