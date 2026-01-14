@@ -18,7 +18,7 @@ try:
     # --- TRUNCATION PROMPT START ---
     print("\n" + "="*100)
     print(" DATABASE CLEANUP OPTIONS")
-    print("="*60)
+    print("="*100)
     print("Tables to be truncated:")
     print(" - noggin_schema.noggin_data")
     print(" - noggin_schema.attachments")
@@ -54,13 +54,13 @@ try:
             sys.exit(1)
     else:
         print("... Skipping truncation. Appending to existing data.")
-    print("="*60 + "\n")
+    print("="*100 + "\n")
     # --- TRUNCATION PROMPT END ---
 
     csv_importer: CSVImporter = CSVImporter(config, db_manager)
 
     logger.info(f"Input folder path: {csv_importer.input_folder}")
-logger.info(f"Input folder exists: {csv_importer.input_folder.exists()}")
+    logger.info(f"Input folder exists: {csv_importer.input_folder.exists()}")
    
     csv_files = sorted(list(csv_importer.input_folder.glob('*.csv')))
 
@@ -96,8 +96,7 @@ logger.info(f"Input folder exists: {csv_importer.input_folder.exists()}")
         files_formatted = "\n\n".join(file_details)
         logger.info(f"Found {len(csv_files)} CSV files to process:\n{files_formatted}")
     else:
-        else:
-            logger.info(f"No CSV files found in: {csv_importer.input_folder}")
+        logger.info(f"No CSV files found in: {csv_importer.input_folder}")
     print("\n")
     
     logger.info("Scanning for CSV files in input folder...")
