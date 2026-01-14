@@ -1,6 +1,6 @@
 import configparser
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any, Optional, Tuple
 import logging
 
 logger: logging.Logger = logging.getLogger(__name__)
@@ -110,11 +110,64 @@ class ConfigLoader:
         }
     
     def get_object_type_config(self) -> dict[str, str]:
+        # id_field format: "apiFieldName:dbColumnName:fieldType"
+        # e.g., "lcdInspectionId:noggin_reference:string"
+        id_field_raw = self.get('fields', 'id_field', from_specific=True)
+        
+        # Parse the id_field to extract components
+        id_parts = id_field_raw.split(':') if id_field_raw else ['', '', '']
+        api_id_field = id_parts[0] if len(id_parts) > 0 else ''
+        db_id_column = id_parts[1] if len(id_parts) > 1 else ''
+        
         return {
             'endpoint': self.get('api', 'endpoint', from_specific=True),
             'object_type': self.get('api', 'object_type', from_specific=True),
-            'id_column': self.get('object_detection', 'id_column', from_specific=True)
+            'abbreviation': self.get('object_type', 'abbreviation', from_specific=True),
+            'full_name': self.get('object_type', 'full_name', from_specific=True),
+            'id_field': id_field_raw,
+            'api_id_field': api_id_field,
+            'db_id_column': db_id_column,
         }
+    
+    def get_field_mappings(self) -> dict[str, tuple[str, str, Optional[str]]]:
+        """
+        Parse [fields] section and return field mappings.
+        
+        Config format: api_field = db_column:field_type[:hash_type]
+        Returns: {api_field: (db_column, field_type, hash_type or None)}
+        """
+        fields_section = self.get_section('fields', from_specific=True)
+        mappings: dict[str, tuple[str, str, Optional[str]]] = {}
+        
+        # Skip meta fields (id_field, date_field)
+        skip_keys = {'id_field', 'date_field'}
+        
+        for api_field, value in fields_section.items():
+            if api_field in skip_keys:
+                continue
+            
+            parts = value.split(':')
+            if len(parts) < 2:
+                logger.warning(f"Invalid field mapping for {api_field}: {value}")
+                continue
+            
+            db_column = parts[0]
+            field_type = parts[1]
+            hash_type = parts[2] if len(parts) > 2 else None
+            
+            mappings[api_field] = (db_column, field_type, hash_type)
+        
+        return mappings
+    
+    def get_output_patterns(self) -> dict[str, str]:
+        """Get output patterns from [output] section"""
+        return self.get_section('output', from_specific=True)
+    
+    def get_template_content(self) -> Optional[str]:
+        """Get report template content from [template] section"""
+        if self.specific_config.has_option('template', 'content'):
+            return self.specific_config.get('template', 'content')
+        return None
 
 if __name__ == "__main__":
     try:

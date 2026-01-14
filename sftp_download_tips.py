@@ -263,7 +263,7 @@ def detect_object_type(csv_path: Path) -> Tuple[str, Dict[str, str]]:
     """
     Detect object type by examining CSV headers
     
-    Returns tuple of (id_column_name, object_type_metadata)
+    Returns tuple of (api_id_field_name, object_type_metadata)
     Raises ObjectTypeDetectionError if type cannot be determined
     """
     try:
@@ -282,14 +282,14 @@ def detect_object_type(csv_path: Path) -> Tuple[str, Dict[str, str]]:
                     'full_name': config.full_name,
                     'id_prefix': config.id_prefix
                 }
-                logger.debug(f"Detected object type: {config.abbreviation} via column '{config.id_column}'")
-                return config.id_column, metadata
+                logger.debug(f"Detected object type: {config.abbreviation} via column '{config.api_id_field}'")
+                return config.api_id_field, metadata
         else:
             # Fallback to inline detection
-            for id_column, metadata in OBJECT_TYPE_SIGNATURES.items():
-                if id_column in headers:
-                    logger.debug(f"Detected object type: {metadata['abbreviation']} via column '{id_column}'")
-                    return id_column, metadata
+            for api_id_field, metadata in OBJECT_TYPE_SIGNATURES.items():
+                if api_id_field in headers:
+                    logger.debug(f"Detected object type: {metadata['abbreviation']} via column '{api_id_field}'")
+                    return api_id_field, metadata
         
         raise ObjectTypeDetectionError(
             f"No known ID column found in headers: {headers[:10]}..."
@@ -315,7 +315,7 @@ def find_column_index(headers: List[str], column_name: str) -> int:
         return -1
 
 
-def extract_tips_from_csv(csv_path: Path, id_column: str, 
+def extract_tips_from_csv(csv_path: Path, api_id_field: str, 
                           object_type_meta: Dict[str, str]) -> List[Dict[str, Any]]:
     """
     Extract TIP data from CSV file
@@ -331,11 +331,11 @@ def extract_tips_from_csv(csv_path: Path, id_column: str,
         # First column is always nogginId (TIP), regardless of header name
         tip_index = 0
         
-        id_index = find_column_index(headers, id_column)
+        id_index = find_column_index(headers, api_id_field)
         date_index = find_column_index(headers, 'date')
         
         if id_index == -1:
-            logger.warning(f"ID column '{id_column}' not found in headers")
+            logger.warning(f"API ID field '{api_id_field}' not found in headers")
             id_index = None
         
         if date_index == -1:
@@ -649,7 +649,7 @@ def process_single_file(
         local_file = download_file(sftp, remote_filename, paths['incoming'])
         
         try:
-            id_column, object_meta = detect_object_type(local_file)
+            api_id_field, object_meta = detect_object_type(local_file)
             result['object_type'] = object_meta['abbreviation']
         except ObjectTypeDetectionError as e:
             quarantine_file(local_file, paths['quarantine'], str(e), 
@@ -657,7 +657,7 @@ def process_single_file(
             result['status'] = 'quarantined'
             return result
         
-        tips_data = extract_tips_from_csv(local_file, id_column, object_meta)
+        tips_data = extract_tips_from_csv(local_file, api_id_field, object_meta)
         result['tips_found'] = len(tips_data)
         
         if not tips_data:

@@ -78,12 +78,12 @@ OBJECT_TYPES: Dict[str, ObjectTypeConfig] = {
     )
 }
 
-# Build reverse lookup: id_column -> ObjectTypeConfig
+# reverse lkp
 ID_COLUMN_TO_TYPE: Dict[str, ObjectTypeConfig] = {
     config.id_column: config for config in OBJECT_TYPES.values()
 }
 
-# lowercase lookup for case-insensitive matching
+# case insensitive matching
 ID_COLUMN_TO_TYPE_LOWER: Dict[str, ObjectTypeConfig] = {
     config.id_column.lower(): config for config in OBJECT_TYPES.values()
 }

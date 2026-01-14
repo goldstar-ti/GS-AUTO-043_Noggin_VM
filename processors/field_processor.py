@@ -42,7 +42,8 @@ class FieldProcessor:
         obj_config = config.get_object_type_config()
         self.object_type: str = obj_config['object_type']
         self.abbreviation: str = obj_config['abbreviation']
-        self.id_field: str = obj_config['id_field'].split(':')[0]  # e.g., "lcdInspectionId"
+        self.api_id_field: str = obj_config['api_id_field']
+        self.db_id_column: str = obj_config['db_id_column']
         
         # Parse field mappings
         self.field_mappings: Dict[str, Tuple[str, str, Optional[str]]] = config.get_field_mappings()
@@ -51,7 +52,7 @@ class FieldProcessor:
     
     def extract_inspection_id(self, response_data: Dict[str, Any]) -> Optional[str]:
         """Extract the inspection ID from response"""
-        return response_data.get(self.id_field)
+        return response_data.get(self.api_id_field)
     
     def extract_date(self, response_data: Dict[str, Any]) -> Tuple[Optional[str], Optional[datetime]]:
         """
@@ -321,17 +322,8 @@ class DatabaseRecordManager:
             raise
     
     def _get_id_column(self) -> str:
-        """Get the inspection ID column name for this object type"""
-        # Map abbreviation to ID column
-        id_columns = {
-            'LCD': 'lcd_inspection_id',
-            'LCS': 'lcs_inspection_id',
-            'CCC': 'coupling_id',
-            'FPI': 'forklift_inspection_id',
-            'SO': 'site_observation_id',
-            'TA': 'trailer_audit_id',
-        }
-        return id_columns.get(self.field_processor.abbreviation, 'inspection_id')
+        """Get the database column name for inspection ID (config-driven)"""
+        return self.field_processor.db_id_column
     
     def update_processing_status(self, tip_value: str, status: str,
                                  error_message: Optional[str] = None) -> None:

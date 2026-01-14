@@ -84,7 +84,7 @@ __all__ = [
     'get_object_type_by_abbreviation',
     'get_object_type_by_full_name',
     'get_all_object_types',
-    'get_id_column_for_type',
+    'get_api_id_field_for_type',
     'find_column_index',
     'extract_row_data',
 ]
