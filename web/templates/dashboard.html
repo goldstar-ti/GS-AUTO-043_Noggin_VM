@@ -3,25 +3,42 @@
 {% block title %}Dashboard - Noggin Processor{% endblock %}
 
 {% block content %}
+<!-- 1. STATUS GRID -->
 <div class="stats-grid">
-    {% set status_mapping = {
-        'complete': ('success', '✓'),
-        'pending': ('info', '⏳'),
-        'failed': ('danger', '✗'),
-        'partial': ('warning', '⚠'),
-        'api_failed': ('danger', '🔌'),
-        'interrupted': ('warning', '⏸')
+    <!-- Transport Theme Config -->
+    {% set status_config = {
+        'complete': ('success', '🏁'),
+        'pending': ('info', '🚦'),
+        'failed': ('danger', '🛑'),
+        'partial': ('warning', '🚧'),
+        'api_error': ('danger', '🔧'),
+        'csv_imported': ('secondary', '📦'),
+        'interrupted': ('warning', '⛽')
     } %}
     
-    {% for stat in stats %}
-        {% set status_class, icon = status_mapping.get(stat.processing_status, ('secondary', '•')) %}
-        <div class="stat-card {{ status_class }}">
-            <div class="label">{{ icon }} {{ stat.processing_status|upper }}</div>
-            <div class="number">{{ stat.count }}</div>
+    {% for status, count in stats.items() %}
+        {% set config = status_config.get(status, ('secondary', '•')) %}
+        <div class="stat-card {{ config[0] }}">
+            <div class="label">{{ config[1] }} {{ status|upper }}</div>
+            <div class="number">{{ count }}</div>
         </div>
     {% endfor %}
 </div>
 
+<!-- 2. OBJECT TYPE BREAKDOWN -->
+<div class="card" style="margin-top: 20px;">
+    <h2>Records by Object Type</h2>
+    <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+        {% for item in type_stats %}
+            <div style="background: #f8f9fa; padding: 10px 15px; border-radius: 6px; border: 1px solid #ddd;">
+                <span style="font-weight: bold; color: #555;">{{ item.object_type }}</span>
+                <span style="background: var(--gs-gold); color: var(--gs-slate); padding: 2px 8px; border-radius: 10px; font-size: 0.9em; margin-left: 8px;">{{ item.count }}</span>
+            </div>
+        {% endfor %}
+    </div>
+</div>
+
+<!-- 3. TODAY'S ACTIVITY -->
 <div class="card">
     <h2>Today's Activity</h2>
     <div class="stats-grid">
@@ -46,12 +63,14 @@
     </div>
 </div>
 
+<!-- 4. RECENT ACTIVITY (With User, Flags & NO Processing Time) -->
 <div class="card">
     <h2>Recent Activity</h2>
     <table>
         <thead>
             <tr>
-                <th>LCD Inspection ID</th>
+                <th>Reference / ID</th>
+                <th>User / Team</th>
                 <th>Date</th>
                 <th>Status</th>
                 <th>Attachments</th>
@@ -62,22 +81,75 @@
         <tbody>
             {% for item in recent %}
             <tr>
-                <td>{{ item.noggin_reference or 'N/A' }}</td>
-                <td>{{ item.inspection_date.strftime('%Y-%m-%d') if item.inspection_date else 'N/A' }}</td>
+                <!-- ID Column with Health Flags -->
+                <td>
+                    <strong>{{ item.noggin_reference or item.tip }}</strong>
+                    
+                    {% if item.has_unknown_hashes %}
+                        <span title="Unknown Hashes" style="cursor: help;">👻</span>
+                    {% endif %}
+                    
+                    {% if item.retry_count and item.retry_count > 0 %}
+                        <span class="badge warning" style="font-size: 0.7em; padding: 2px 5px;">R:{{ item.retry_count }}</span>
+                    {% endif %}
+                    
+                    <br>
+                    <small style="color: #7f8c8d;">{{ item.object_type }}</small>
+                </td>
+                
+                <!-- Stacked User & Team Column -->
+                <td>
+                    <div style="font-weight: 500;">
+                        {% if item.derived_user %}
+                            {{ item.derived_user }}
+                        {% else %}
+                            <span style="color: #ccc;">-</span>
+                        {% endif %}
+                    </div>
+                    
+                    <div style="font-size: 0.85em; color: #7f8c8d;">
+                        {% if item.team %}
+                            {{ item.team }}
+                        {% elif item.department %}
+                            {{ item.department }}
+                        {% endif %}
+                    </div>
+                </td>
+
+                <!-- Date with Year -->
+                <td>{{ item.inspection_date.strftime('%d-%m-%Y') if item.inspection_date else '' }}</td>
+                
                 <td>
                     {% set status_class = {
                         'complete': 'success',
                         'pending': 'info',
                         'failed': 'danger',
-                        'partial': 'warning'
+                        'partial': 'warning',
+                        'api_error': 'danger',
+                        'csv_imported': 'secondary'
                     }.get(item.processing_status, 'secondary') %}
                     <span class="badge {{ status_class }}">{{ item.processing_status }}</span>
                 </td>
-                <td>{{ item.completed_attachment_count or 0 }} / {{ item.total_attachments or 0 }}</td>
-                <td>{{ item.updated_at.strftime('%Y-%m-%d %H:%M') if item.updated_at else 'N/A' }}</td>
+
+                <!-- Attachments -->
                 <td>
-                    <a href="{{ url_for('inspection_detail', tip=item.tip) }}" class="btn">View</a>
+                    {% if item.total_attachments and item.total_attachments > 0 %}
+                        {{ item.completed_attachment_count or 0 }}<span style="color: #95a5a6;">/{{ item.total_attachments }}</span>
+                    {% else %}
+                        <span style="color: #bdc3c7;">-</span>
+                    {% endif %}
                 </td>
+                
+                <!-- Updated Time -->
+                <td>{{ item.updated_at.strftime('%H:%M') if item.updated_at else 'N/A' }}</td>
+                
+                <td>
+                    <a href="{{ url_for('inspection_detail', tip=item.tip) }}" class="btn" style="padding: 4px 8px; font-size: 0.9em;">View</a>
+                </td>
+            </tr>
+            {% else %}
+            <tr>
+                <td colspan="7" style="text-align: center; color: #7f8c8d; padding: 2rem;">No recent activity found.</td>
             </tr>
             {% endfor %}
         </tbody>

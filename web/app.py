@@ -16,15 +16,14 @@ app.secret_key = 'a1b5a507e8d554cd54f506f3b1056a71f237309a9f4565b6cc9632d4d3352f
 
 auth = HTTPBasicAuth()
 
-# Load Config - using the relative paths from your directory structure
-config = ConfigLoader(
-    '../config/base_config.ini',
-    '../config/load_compliance_check_driver_loader_config.ini'
-)
+# --- CONFIGURATION UPDATE ---
+# We now load ONLY the base config. 
+# The web interface shouldn't depend on specific object type configs (like LCD)
+# because it needs to display ALL object types (LCD, GII, SO, etc).
+config = ConfigLoader('../config/base_config.ini')
 db_manager = DatabaseConnectionManager(config)
 hash_manager = HashManager(config, db_manager)
 
-# Users dictionary - NEW Web Interface credentials
 users = {
     "tifunction": generate_password_hash("BankFreePlay13")
 }
@@ -37,25 +36,19 @@ def verify_password(username, password):
 # --- HELPER FUNCTIONS ---
 
 def get_filter_options():
-    """Fetch distinct values for dropdowns to make search easier."""
-    options = {
-        'object_types': [],
-        'vehicles': []
-    }
+    options = {'object_types': [], 'vehicles': []}
     try:
-        # Get Object Types (e.g., LCD, GII, SO)
+        # Dynamic Object Types (LCD, GII, SO, etc.)
         q_obj = "SELECT DISTINCT object_type FROM noggin_data WHERE object_type IS NOT NULL ORDER BY object_type"
         objs = db_manager.execute_query_dict(q_obj)
         options['object_types'] = [r['object_type'] for r in objs]
 
-        # Get Vehicles (Using DISTINCT to avoid massive lists)
+        # Vehicles
         q_veh = "SELECT DISTINCT vehicle FROM noggin_data WHERE vehicle IS NOT NULL ORDER BY vehicle"
         vehs = db_manager.execute_query_dict(q_veh)
         options['vehicles'] = [r['vehicle'] for r in vehs]
-        
     except Exception as e:
         print(f"Error fetching filter options: {e}")
-    
     return options
 
 # --- ROUTES ---
@@ -63,32 +56,63 @@ def get_filter_options():
 @app.route('/')
 @auth.login_required
 def index():
-    """Dashboard home page"""
     try:
-        # Get statistics
+        # 1. Processing Status Stats
         stats_query = """
-            SELECT 
-                processing_status,
-                COUNT(*) as count
+            SELECT processing_status, COUNT(*) as count
             FROM noggin_data
             GROUP BY processing_status
         """
-        stats = db_manager.execute_query_dict(stats_query)
+        stats_raw = db_manager.execute_query_dict(stats_query)
+        stats = {row['processing_status']: row['count'] for row in stats_raw}
         
-        # Get today's stats
+        # 2. Object Type Breakdown
+        type_query = """
+            SELECT object_type, COUNT(*) as count
+            FROM noggin_data
+            GROUP BY object_type
+            ORDER BY count DESC
+        """
+        type_stats = db_manager.execute_query_dict(type_query)
+
+        # 3. Today's Activity
         today_query = """
             SELECT 
                 COUNT(*) as total_today,
-                COUNT(*) FILTER (WHERE processing_status = 'COMPLETE') as completed_today
+                COUNT(*) FILTER (WHERE processing_status = 'complete') as completed_today
             FROM noggin_data
             WHERE updated_at >= CURRENT_DATE
         """
         today_stats_list = db_manager.execute_query_dict(today_query)
         today_stats = today_stats_list[0] if today_stats_list else {'total_today': 0, 'completed_today': 0}
         
-        # Recent activity
+        # 4. Recent Activity
+        # Removed: duration_seconds calculation
+        # Added: person_involved to the User list
         recent_query = """
-            SELECT * FROM noggin_data 
+            SELECT 
+                object_type,
+                tip, 
+                noggin_reference,
+                inspection_date,
+                processing_status,
+                completed_attachment_count,
+                total_attachments,
+                updated_at,
+                has_unknown_hashes,
+                retry_count,
+                team,
+                department,
+                COALESCE(
+                    driver_loader_name, 
+                    inspected_by, 
+                    person_completing, 
+                    persons_completing, 
+                    site_manager, 
+                    regular_driver,
+                    person_involved
+                ) as derived_user
+            FROM noggin_data 
             ORDER BY updated_at DESC 
             LIMIT 10
         """
@@ -97,6 +121,7 @@ def index():
         return render_template(
             'dashboard.html',
             stats=stats,
+            type_stats=type_stats,
             today_stats=today_stats,
             recent=recent
         )
@@ -106,15 +131,10 @@ def index():
 @app.route('/inspections')
 @auth.login_required
 def inspections():
-    """
-    Advanced Search Interface for Inspections.
-    Supports filtering by Object Type, Date, Entity, and Status.
-    """
     page = request.args.get('page', 1, type=int)
     per_page = 20
     offset = (page - 1) * per_page
     
-    # --- Capture Search Parameters ---
     filters = {
         'status': request.args.get('status', ''),
         'object_type': request.args.get('object_type', ''),
@@ -125,7 +145,6 @@ def inspections():
         'search_text': request.args.get('search', '')
     }
 
-    # --- Build Query Dynamically ---
     query_parts = ["SELECT * FROM noggin_data WHERE 1=1"]
     params = []
     
@@ -157,7 +176,7 @@ def inspections():
         search_term = f"%{filters['search_text']}%"
         query_parts.append("""
             AND (
-                record_tip ILIKE %s OR 
+                tip ILIKE %s OR 
                 noggin_reference ILIKE %s OR 
                 department ILIKE %s OR 
                 team ILIKE %s
@@ -165,16 +184,15 @@ def inspections():
         """)
         params.extend([search_term] * 4)
 
-    # --- Count Total (for Pagination) ---
+    # Count Query
     count_sql = "SELECT COUNT(*) as total FROM noggin_data WHERE 1=1 " + " ".join(query_parts[1:])
     try:
         total_result = db_manager.execute_query_dict(count_sql, tuple(params))
         total = total_result[0]['total']
-    except Exception as e:
+    except Exception:
         total = 0
-        print(f"Count Query Error: {e}")
 
-    # --- Finalize Main Query ---
+    # Main Query
     query_parts.append("ORDER BY inspection_date DESC NULLS LAST, updated_at DESC")
     query_parts.append("LIMIT %s OFFSET %s")
     params.extend([per_page, offset])
@@ -187,9 +205,7 @@ def inspections():
         inspections = []
         flash(f"Error loading inspections: {e}", "error")
 
-    # Get options for the dropdowns
     filter_options = get_filter_options()
-
     total_pages = (total + per_page - 1) // per_page
     
     return render_template(
@@ -205,10 +221,8 @@ def inspections():
 @app.route('/inspection/<tip>')
 @auth.login_required
 def inspection_detail(tip):
-    """Detail view for a single inspection"""
     try:
-        # Get inspection details
-        query = "SELECT * FROM noggin_data WHERE record_tip = %s"
+        query = "SELECT * FROM noggin_data WHERE tip = %s"
         results = db_manager.execute_query_dict(query, (tip,))
         
         if not results:
@@ -216,12 +230,10 @@ def inspection_detail(tip):
             
         inspection = results[0]
         
-        # Get attachments
-        att_query = "SELECT * FROM attachments WHERE record_tip = %s ORDER BY created_at"
+        att_query = "SELECT * FROM attachments WHERE tip = %s ORDER BY created_at"
         attachments = db_manager.execute_query_dict(att_query, (tip,))
         
-        # Get processing errors
-        err_query = "SELECT * FROM processing_errors WHERE record_tip = %s ORDER BY created_at DESC"
+        err_query = "SELECT * FROM processing_errors WHERE tip = %s ORDER BY created_at DESC"
         errors = db_manager.execute_query_dict(err_query, (tip,))
         
         return render_template(
@@ -236,7 +248,6 @@ def inspection_detail(tip):
 @app.route('/hashes')
 @auth.login_required
 def hashes():
-    """Hash management interface"""
     try:
         stats = hash_manager.get_statistics()
         unknown_query = """
@@ -253,7 +264,6 @@ def hashes():
 @app.route('/service-status')
 @auth.login_required
 def service_status():
-    """Service status page"""
     import subprocess
     try:
         result = subprocess.run(['systemctl', 'is-active', 'noggin-processor'], capture_output=True, text=True)

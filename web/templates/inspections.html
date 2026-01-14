@@ -10,6 +10,7 @@
         border-radius: 8px;
         box-shadow: 0 1px 3px rgba(0,0,0,0.1);
         margin-bottom: 2rem;
+        border-top: 3px solid var(--gs-slate);
     }
 
     .filter-grid {
@@ -27,7 +28,7 @@
     .filter-group label {
         font-size: 0.85rem;
         font-weight: 600;
-        color: #666;
+        color: var(--gs-slate);
         margin-bottom: 0.4rem;
     }
 
@@ -39,6 +40,13 @@
         font-size: 0.95rem;
         width: 100%;
     }
+    
+    .filter-group input:focus, 
+    .filter-group select:focus {
+        outline: none;
+        border-color: var(--gs-gold);
+        box-shadow: 0 0 0 2px rgba(242, 196, 56, 0.2);
+    }
 
     .filter-actions {
         display: flex;
@@ -47,34 +55,8 @@
         padding-top: 1rem;
         border-top: 1px solid #eee;
     }
-
-    .btn-primary {
-        background: #3498db;
-        color: white;
-        border: none;
-        padding: 0.6rem 1.2rem;
-        border-radius: 4px;
-        cursor: pointer;
-        font-weight: 500;
-    }
     
-    .btn-secondary {
-        background: #f8f9fa;
-        color: #444;
-        border: 1px solid #ddd;
-        padding: 0.6rem 1.2rem;
-        border-radius: 4px;
-        text-decoration: none;
-    }
-
-    .btn-primary:hover { background: #2980b9; }
-    .btn-secondary:hover { background: #e2e6ea; }
-
-    .badge { padding: 4px 8px; border-radius: 12px; font-size: 0.8em; }
-    .badge.success { background: #d4edda; color: #155724; }
-    .badge.info { background: #d1ecf1; color: #0c5460; }
-    .badge.danger { background: #f8d7da; color: #721c24; }
-    .badge.warning { background: #fff3cd; color: #856404; }
+    /* Buttons now inherit from base.html, so we don't need to define colors here */
 </style>
 {% endblock %}
 
@@ -146,8 +128,8 @@
         </div>
 
         <div class="filter-actions">
-            <a href="{{ url_for('inspections') }}" class="btn-secondary">Reset Filters</a>
-            <button type="submit" class="btn-primary">Apply Filters</button>
+            <a href="{{ url_for('inspections') }}" class="btn btn-secondary">Reset Filters</a>
+            <button type="submit" class="btn btn-primary">Apply Filters</button>
         </div>
     </form>
 </div>
@@ -178,7 +160,7 @@
             {% for inspection in inspections %}
             <tr>
                 <td><strong>{{ inspection.object_type }}</strong></td>
-                <td>{{ inspection.noggin_reference or inspection.record_tip }}</td>
+                <td>{{ inspection.noggin_reference or inspection.tip }}</td>
                 <td>{{ inspection.inspection_date.strftime('%d-%m-%Y') if inspection.inspection_date else 'N/A' }}</td>
                 <td>{{ inspection.vehicle or '-' }}</td>
                 <td>{{ inspection.trailer or '-' }}</td>
@@ -197,7 +179,7 @@
                 </td>
                 <td>{{ inspection.completed_attachment_count or 0 }} / {{ inspection.total_attachments or 0 }}</td>
                 <td>
-                    <a href="{{ url_for('inspection_detail', tip=inspection.record_tip) }}" class="btn">View</a>
+                    <a href="{{ url_for('inspection_detail', tip=inspection.tip) }}" class="btn">View</a>
                 </td>
             </tr>
             {% else %}
