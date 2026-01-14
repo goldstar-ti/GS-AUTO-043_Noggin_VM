@@ -48,13 +48,21 @@ class ConfigLoader:
         logger.info("Configuration validation passed")
     
     def get(self, section: str, key: str, fallback: Optional[str] = None, from_specific: bool = False) -> str:
-        config: configparser.ConfigParser = self.specific_config if from_specific else self.base_config
-        
-        if from_specific and not config.has_option(section, key):
-            config = self.base_config
-        
-        value: str = config.get(section, key, fallback=fallback)
-        return value
+            config: configparser.ConfigParser = self.specific_config if from_specific else self.base_config
+            
+            if from_specific and not config.has_option(section, key):
+                config = self.base_config
+            
+            try:
+                value: str = config.get(section, key, fallback=fallback)
+            except configparser.InterpolationSyntaxError:
+                # If standard parsing fails (e.g. date format like "%d %b %Y"), 
+                # retry getting the raw value without interpolation
+                logger.debug(f"Interpolation failed for [{section}] {key}, retrieving raw value.")
+                value: str = config.get(section, key, fallback=fallback, raw=True)
+                
+            return value
+
     
     def getint(self, section: str, key: str, fallback: Optional[int] = None, from_specific: bool = False) -> int:
         config: configparser.ConfigParser = self.specific_config if from_specific else self.base_config
@@ -124,6 +132,8 @@ class ConfigLoader:
             'object_type': self.get('api', 'object_type', from_specific=True),
             'abbreviation': self.get('object_type', 'abbreviation', from_specific=True),
             'full_name': self.get('object_type', 'full_name', from_specific=True),
+            # Added inspection_type here
+            'inspection_type': self.get('object_type', 'inspection_type', from_specific=True, fallback='Inspection'),
             'id_field': id_field_raw,
             'api_id_field': api_id_field,
             'db_id_column': db_id_column,

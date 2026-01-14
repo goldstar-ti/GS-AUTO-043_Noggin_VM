@@ -22,6 +22,9 @@ from datetime import datetime
 from pathlib import Path
 from typing import Dict, Any, Optional, List
 
+# Import sanitise_filename to ensure consistency with folder naming
+from .base_processor import sanitise_filename
+
 logger: logging.Logger = logging.getLogger(__name__)
 
 
@@ -37,6 +40,7 @@ class ReportGenerator:
         self.object_type: str = obj_config['object_type']
         self.abbreviation: str = obj_config['abbreviation']
         self.full_name: str = obj_config['full_name']
+        self.inspection_type: str = obj_config.get('inspection_type', 'Inspection')
         
         # Load template
         self.template: str = config.get_template_content()
@@ -48,6 +52,9 @@ class ReportGenerator:
                                                         fallback=False, from_specific=True)
         self.unknown_text: str = config.get('output', 'unknown_response_output_text',
                                             fallback='Unknown', from_specific=True)
+        self.filename_pattern: str = config.get('output', 'textfile_pattern', 
+                                              fallback='{inspection_id}_inspection_data.txt', 
+                                              from_specific=True)
         
         # Date format for reports
         self.date_format: str = config.get('report', 'date_format', fallback='%Y-%m-%d')
@@ -61,7 +68,7 @@ class ReportGenerator:
             if field_type == 'datetime':
                 self.date_fields.add(api_field)
         
-        logger.debug(f"ReportGenerator initialised for {self.abbreviation}")
+        logger.debug(f"ReportGenerator initialised for {self.abbreviation} (Type: {self.inspection_type})")
     
     def generate_report(self, response_data: Dict[str, Any], 
                        inspection_id: str) -> str:
@@ -93,6 +100,7 @@ class ReportGenerator:
             'generation_date': datetime.now().strftime('%d-%m-%Y'),
             'full_name': self.full_name.upper(),
             'abbreviation': self.abbreviation,
+            'inspection_type': self.inspection_type,
             'attachment_count': len(response_data.get('attachments', [])),
             'json_payload': json.dumps(response_data, indent=2, ensure_ascii=False),
             'show_json_payload_in_text_file': self.show_json,
@@ -258,23 +266,62 @@ class ReportGenerator:
         return re.sub(pattern, replacer, template)
     
     def save_report(self, report: str, inspection_folder: Path, 
-                   inspection_id: str) -> Optional[Path]:
+                   inspection_id: str, date_str: Optional[str] = None) -> Optional[Path]:
         """
-        Save report to file
+        Save report to file using configured filename pattern
         
         Args:
             report: Report content
             inspection_folder: Folder to save in
             inspection_id: Used for filename
+            date_str: ISO date string for filename substitution
             
         Returns:
             Path to saved file or None on error
         """
-        # Sanitise ID for filename
-        safe_id = re.sub(r'[<>:"/\\|?*]', '_', str(inspection_id))
-        safe_id = safe_id[:100]
+        # Parse date for filename components
+        try:
+            if date_str:
+                date_obj = datetime.fromisoformat(date_str.replace('Z', '+00:00'))
+                date_formatted = date_obj.strftime('%Y-%m-%d')
+                year = date_obj.strftime('%Y')
+                month = date_obj.strftime('%m')
+            else:
+                raise ValueError("Empty date")
+        except (ValueError, AttributeError):
+            date_formatted = 'unknown_date'
+            year = 'unknown'
+            month = 'unknown'
+            
+        # Handle user-requested spaces in keys (e.g. {inspection type}) by normalizing pattern
+        # This converts "{inspection id}" to "{inspection_id}" before python formatting
+        pattern = self.filename_pattern
+        pattern = pattern.replace('{inspection id}', '{inspection_id}')
+        pattern = pattern.replace('{inspection type}', '{inspection_type}')
+        pattern = pattern.replace('{full name}', '{full_name}')
         
-        filename = f"{safe_id}_inspection_data.txt"
+        try:
+            filename = pattern.format(
+                full_name=self.full_name,
+                abbreviation=self.abbreviation,
+                inspection_id=inspection_id,
+                inspection_type=self.inspection_type,
+                date=date_formatted,
+                year=year,
+                month=month
+            )
+        except KeyError as e:
+            logger.warning(f"Invalid key in filename pattern '{self.filename_pattern}': {e}. Using default.")
+            filename = f"{inspection_id}_inspection_data.txt"
+        
+        # Sanitise the resulting filename
+        # This uses the version from base_processor which allows spaces
+        filename = sanitise_filename(filename)
+        
+        # Ensure extension
+        if not filename.lower().endswith('.txt'):
+            filename += ".txt"
+        
         file_path = inspection_folder / filename
         
         try:
@@ -303,11 +350,15 @@ class DefaultReportGenerator:
         obj_config = config.get_object_type_config()
         self.full_name: str = obj_config['full_name']
         self.abbreviation: str = obj_config['abbreviation']
+        self.inspection_type: str = obj_config.get('inspection_type', 'Inspection')
         
         self.show_json: bool = config.getboolean('output', 'show_json_payload_in_text_file',
                                                   fallback=True, from_specific=True)
         self.unknown_text: str = config.get('output', 'unknown_response_output_text',
                                             fallback='Unknown', from_specific=True)
+        self.filename_pattern: str = config.get('output', 'textfile_pattern', 
+                                              fallback='{inspection_id}_inspection_data.txt', 
+                                              from_specific=True)
         
         # Date format for reports
         self.date_format: str = config.get('report', 'date_format', fallback='%Y-%m-%d')
@@ -394,10 +445,48 @@ class DefaultReportGenerator:
             return date_value
     
     def save_report(self, report: str, inspection_folder: Path,
-                   inspection_id: str) -> Optional[Path]:
+                   inspection_id: str, date_str: Optional[str] = None) -> Optional[Path]:
         """Save report to file"""
-        safe_id = re.sub(r'[<>:"/\\|?*]', '_', str(inspection_id))[:100]
-        filename = f"{safe_id}_inspection_data.txt"
+        # Logic duplicated from ReportGenerator.save_report
+        # Ideally this would be a mixin or base class, but keeping it simple for now
+        
+        try:
+            if date_str:
+                date_obj = datetime.fromisoformat(date_str.replace('Z', '+00:00'))
+                date_formatted = date_obj.strftime('%Y-%m-%d')
+                year = date_obj.strftime('%Y')
+                month = date_obj.strftime('%m')
+            else:
+                raise ValueError("Empty date")
+        except (ValueError, AttributeError):
+            date_formatted = 'unknown_date'
+            year = 'unknown'
+            month = 'unknown'
+            
+        pattern = self.filename_pattern
+        pattern = pattern.replace('{inspection id}', '{inspection_id}')
+        pattern = pattern.replace('{inspection type}', '{inspection_type}')
+        pattern = pattern.replace('{full name}', '{full_name}')
+        
+        try:
+            filename = pattern.format(
+                full_name=self.full_name,
+                abbreviation=self.abbreviation,
+                inspection_id=inspection_id,
+                inspection_type=self.inspection_type,
+                date=date_formatted,
+                year=year,
+                month=month
+            )
+        except KeyError as e:
+            logger.warning(f"Invalid key in filename pattern '{self.filename_pattern}': {e}. Using default.")
+            filename = f"{inspection_id}_inspection_data.txt"
+
+        filename = sanitise_filename(filename)
+        
+        if not filename.lower().endswith('.txt'):
+            filename += ".txt"
+        
         file_path = inspection_folder / filename
         
         try:

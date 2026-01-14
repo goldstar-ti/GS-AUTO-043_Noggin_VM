@@ -7,4 +7,7 @@
 [] system service
 [] update docs
 [] web interface
-[] organise files
+[] organise files / tidy up dir (e.g. don't need LCD_ONLY anymore)
+
+[] optimise places where object_type is hardcoded - so that in future only a new config file needs to be added (e.g. want to add Goldstar Illness Injury - GII)
+

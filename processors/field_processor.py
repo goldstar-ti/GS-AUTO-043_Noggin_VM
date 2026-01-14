@@ -40,15 +40,22 @@ class FieldProcessor:
         
         # Load object type info
         obj_config = config.get_object_type_config()
-        self.object_type: str = obj_config['object_type']
         self.abbreviation: str = obj_config['abbreviation']
         self.api_id_field: str = obj_config['api_id_field']
         self.db_id_column: str = obj_config['db_id_column']
         
+        # Determine object type name for DB consistency
+        use_abbrev = config.getboolean('processing', 'use_abbreviation_for_object_type', fallback=False)
+        if use_abbrev:
+            self.object_type = self.abbreviation
+        else:
+            self.object_type = obj_config['object_type']
+            
         # Parse field mappings
         self.field_mappings: Dict[str, Tuple[str, str, Optional[str]]] = config.get_field_mappings()
         
         logger.info(f"FieldProcessor initialised for {self.abbreviation} with {len(self.field_mappings)} field mappings")
+        logger.debug(f"Using object type identifier: {self.object_type}")
     
     def extract_inspection_id(self, response_data: Dict[str, Any]) -> Optional[str]:
         """Extract the inspection ID from response"""

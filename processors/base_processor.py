@@ -95,14 +95,24 @@ class GracefulShutdownHandler:
 
 
 def sanitise_filename(text: str) -> str:
-    """Sanitise string for use in filenames"""
+    """
+    Sanitise string for use in filenames.
+    Allows spaces to preserve formatting like 'TA - 00014'.
+    """
     if not text:
         return "unknown"
     
+    # Replace illegal filename characters with underscore
     sanitised: str = re.sub(r'[<>:"/\\|?*]', '_', str(text))
-    sanitised = re.sub(r'\s+', '_', sanitised)
-    sanitised = re.sub(r'_+', '_', sanitised)
-    sanitised = sanitised.strip('_')
+    
+    # Replace whitespace characters (tabs, newlines) with standard space
+    sanitised = re.sub(r'[\t\r\n]+', ' ', sanitised)
+    
+    # Collapse multiple spaces into one
+    sanitised = re.sub(r'\s+', ' ', sanitised)
+    
+    # Remove leading/trailing spaces or underscores
+    sanitised = sanitised.strip('_ ')
     
     return sanitised[:100] if sanitised else "unknown"
 
@@ -294,10 +304,11 @@ class AttachmentDownloader:
             self.db_manager.execute_update(
                 """
                 INSERT INTO attachments (record_tip, attachment_tip, attachment_sequence, filename, 
-                                        file_path, attachment_status, download_started_at)
-                VALUES (%s, %s, %s, %s, %s, %s, %s)
+                                        file_path, attachment_status, attachment_validation_status, download_started_at)
+                VALUES (%s, %s, %s, %s, %s, %s, 'pending', %s)
                 ON CONFLICT (record_tip, attachment_tip) DO UPDATE SET
                     attachment_status = 'downloading',
+                    attachment_validation_status = 'pending',
                     download_started_at = EXCLUDED.download_started_at,
                     filename = EXCLUDED.filename,
                     file_path = EXCLUDED.file_path

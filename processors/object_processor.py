@@ -39,7 +39,7 @@ logger: logging.Logger = logging.getLogger(__name__)
 
 class ObjectProcessor:
     """
-    Generic object processor for any Noggin inspection type
+    Generic object processor for any Noggin object type
     
     Usage:
         processor = ObjectProcessor(
@@ -50,7 +50,7 @@ class ObjectProcessor:
     """
     
     def __init__(self, base_config_path: str, specific_config_path: str) -> None:
-        # Import here to avoid circular imports
+        # Import here to avoid circular imports. TODO Read python docs regarding scoped imports
         from common import (
             ConfigLoader, LoggerManager, DatabaseConnectionManager,
             HashManager, CircuitBreaker
@@ -365,8 +365,9 @@ class ObjectProcessor:
         inspection_folder = self.folder_manager.create_inspection_folder(date_str, inspection_id)
         
         # Generate and save report
+        # PASSED date_str to save_report for filename generation
         report = self.report_generator.generate_report(response_data, inspection_id)
-        self.report_generator.save_report(report, inspection_folder, inspection_id)
+        self.report_generator.save_report(report, inspection_folder, inspection_id, date_str)
         
         # Process attachments
         attachments = response_data.get('attachments', [])

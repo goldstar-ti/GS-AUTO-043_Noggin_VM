@@ -13,7 +13,7 @@ Key features:
 - Detects if value is hash (64-char hex) or resolved text
 - Looks up hashes in hash_lookup table
 - Stores both hash and resolved value in appropriate columns
-- Falls back to default preview fields if INI section missing
+- Relies on INI configuration for field mapping (Generic Design)
 
 Usage:
     from common.csv_importer import CSVImporter
@@ -190,69 +190,11 @@ class PreviewFieldConfigLoader:
     Loads preview field configurations from INI files.
     
     Each object type's INI file should have a [csv_import] section defining
-    which fields to extract for web search preview.
+    which fields to extract for web search interface.
     """
     
-    # Default preview fields if [csv_import] section is missing
-    DEFAULT_PREVIEW_FIELDS: Dict[str, List[Tuple[str, str, bool]]] = {
-        # (csv_column, db_column, is_hash_field)
-        'LCD': [
-            ('lcdInspectionId', 'lcd_inspection_id', False),
-            ('date', 'inspection_date', False),
-            ('inspectedBy', 'inspected_by', False),
-            ('driverLoaderName', 'driver_loader_name', False),
-            ('team', 'team', True),
-            ('vehicle', 'vehicle', True),
-            ('vehicleId', 'vehicle_id', False),
-            ('trailer', 'trailer', True),
-            ('trailerId', 'trailer_id', False),
-        ],
-        'LCS': [
-            ('lcsInspectionId', 'lcs_inspection_id', False),
-            ('date', 'inspection_date', False),
-            ('inspectedBy', 'inspected_by', False),
-            ('driverLoaderName', 'driver_loader_name', False),
-            ('team', 'team', True),
-            ('vehicle', 'vehicle', True),
-            ('vehicleId', 'vehicle_id', False),
-            ('trailer', 'trailer', True),
-            ('trailerId', 'trailer_id', False),
-        ],
-        'CCC': [
-            ('couplingId', 'coupling_id', False),
-            ('date', 'inspection_date', False),
-            ('personCompleting', 'person_completing', False),
-            ('team', 'team', True),
-            ('vehicleId', 'vehicle_id', False),
-            ('trailer', 'trailer', True),
-            ('trailerId', 'trailer_id', False),
-        ],
-        'FPI': [
-            ('forkliftPrestartInspectionId', 'forklift_inspection_id', False),
-            ('date', 'inspection_date', False),
-            ('personsCompleting', 'persons_completing', False),
-            ('team', 'team', True),
-            ('goldstarAsset', 'goldstar_asset', False),
-            ('preStartStatus', 'prestart_status', False),
-        ],
-        'SO': [
-            ('siteObservationId', 'site_observation_id', False),
-            ('date', 'inspection_date', False),
-            ('siteManager', 'site_manager', False),
-            ('department', 'department', True),
-            ('inspectedBy', 'inspected_by', False),
-        ],
-        'TA': [
-            ('trailerAuditId', 'trailer_audit_id', False),
-            ('date', 'inspection_date', False),
-            ('inspectedBy', 'inspected_by', False),
-            ('team', 'team', True),
-            ('vehicle', 'vehicle', True),
-            ('rego', 'rego', False),
-        ],
-    }
-    
     # Hash field to hash column mapping
+    # This remains hardcoded as it represents global schema conventions, not object-specific data.
     HASH_COLUMN_MAP: Dict[str, str] = {
         'team': 'team_hash',
         'vehicle': 'vehicle_hash',
@@ -304,19 +246,10 @@ class PreviewFieldConfigLoader:
                     ))
                     
                 logger.debug(f"Loaded {len(preview_fields)} preview fields from {config_file.name}")
-        
-        if not preview_fields:
-            defaults = self.DEFAULT_PREVIEW_FIELDS.get(abbreviation, [])
-            for csv_col, db_col, is_hash in defaults:
-                hash_col = self.HASH_COLUMN_MAP.get(db_col) if is_hash else None
-                preview_fields.append(PreviewFieldMapping(
-                    csv_column=csv_col,
-                    db_column=db_col,
-                    is_hash_field=is_hash,
-                    hash_db_column=hash_col
-                ))
-            
-            logger.debug(f"Using {len(preview_fields)} default preview fields for {abbreviation}")
+            else:
+                logger.warning(f"INI file {config_file.name} missing [csv_import] section. Only basic ID/Date will be mapped.")
+        else:
+            logger.warning(f"Config file not found: {config_file}. Only basic ID/Date will be mapped.")
         
         result = ObjectTypePreviewConfig(
             abbreviation=abbreviation,
@@ -373,7 +306,6 @@ class CSVRowParser:
 
         # clean all incoming fields.
         row = [val.strip() for val in row]
-
         
         result: Dict[str, Any] = {}
         
@@ -384,6 +316,9 @@ class CSVRowParser:
         
         result['tip'] = tip
         result['object_type'] = self.preview_config.abbreviation
+        
+        # NOTE: We are extracting preview fields here, but the BatchInserter 
+        # may ignore them depending on configuration/code logic.
         
         # Extract and convert date
         date_col = self.preview_config.date_column
@@ -518,38 +453,49 @@ class BatchInserter:
             return set()
 
     def _insert_batch(self, records: List[Dict[str, Any]]) -> int:
-        """Insert a batch of records"""
+        """Insert a batch of records - STRICT COLUMN FILTERING"""
         if not records:
             return 0
         
-        # Add standard fields
+        # STRICT IMPORT MODE:
+        # We only insert the columns requested by the user, ignoring any 
+        # preview fields parsed by the CSVRowParser.
+        
+        # Note: 'csv_imported' is used for the enum status.
+        
         current_time = datetime.now()
-        for record in records:
-            record['processing_status'] = 'csv_imported'
-            record['csv_imported_at'] = current_time
-
-        # Collect all columns used across records
-        all_columns = set()
-        for record in records:
-            all_columns.update(record.keys())
         
-        # Order columns consistently
-        priority_cols = ['tip', 'object_type', 'processing_status', 'csv_imported_at']
-        ordered_columns = [c for c in priority_cols if c in all_columns]
-        ordered_columns.extend(sorted(c for c in all_columns if c not in priority_cols))
+        # Columns to insert
+        columns = [
+            'tip',
+            'object_type',
+            'processing_status',
+            'csv_imported_at',
+            'created_at',
+            'updated_at',
+            'source_filename'
+        ]
         
-        column_list = ', '.join(ordered_columns)
-        placeholders = ', '.join(['%s'] * len(ordered_columns))
+        placeholders = ', '.join(['%s'] * len(columns))
         
         insert_sql = f"""
-            INSERT INTO noggin_data ({column_list})
+            INSERT INTO noggin_data ({', '.join(columns)})
             VALUES ({placeholders})
             ON CONFLICT (tip) DO NOTHING
         """
         
         inserted = 0
         for record in records:
-            values = tuple(record.get(col) for col in ordered_columns)
+            # Prepare values in precise order
+            values = (
+                record.get('tip'),
+                record.get('object_type'),
+                'csv_imported',     # processing_status
+                current_time,       # csv_imported_at
+                current_time,       # created_at (overriding default to match imported_at)
+                current_time,       # updated_at (overriding default to match imported_at)
+                record.get('source_filename')
+            )
             
             try:
                 result = self.db_manager.execute_update(insert_sql, values)
@@ -622,6 +568,8 @@ class CSVFileProcessor:
                     try:
                         parsed = row_parser.parse_row(row)
                         if parsed:
+                            # Inject source filename for the inserter
+                            parsed['source_filename'] = self.file_path.name
                             inserter.add(parsed)
                     except Exception as e:
                         logger.warning(f"Row {row_num}: Parse error - {e}")
@@ -783,51 +731,4 @@ class CSVImporter:
         
         try:
             source.rename(destination)
-            logger.info(f"Moved {source.name} to {destination_folder.name}/")
-            return destination
-        except Exception as e:
-            logger.error(f"Failed to move {source.name}: {e}")
-            return None
-
-
-def detect_object_type(headers: List[str]) -> Optional[str]:
-    """Legacy compatibility"""
-    config = detect_object_type_from_headers(headers)
-    return config.abbreviation if config else None
-
-
-if __name__ == "__main__":
-    import sys
-    from pathlib import Path
-    
-    script_dir = Path(__file__).parent.parent
-    sys.path.insert(0, str(script_dir))
-    
-    from common import ConfigLoader, DatabaseConnectionManager, LoggerManager
-    
-    try:
-        config = ConfigLoader('config/base_config.ini')
-        
-        logger_manager = LoggerManager(config, script_name='csv_importer')
-        logger_manager.configure_application_logger()
-        
-        db_manager = DatabaseConnectionManager(config)
-        importer = CSVImporter(config, db_manager)
-        
-        summary = importer.scan_and_import()
-        
-        print(f"\nCSV Import Summary:")
-        print(f"  Files processed: {summary['files_processed']}")
-        print(f"  Files succeeded: {summary['files_succeeded']}")
-        print(f"  Files failed: {summary['files_failed']}")
-        print(f"  TIPs imported: {summary['total_imported']}")
-        print(f"  Duplicates skipped: {summary['total_duplicates']}")
-        print(f"  Errors: {summary['total_errors']}")
-        
-    except Exception as e:
-        print(f"Error: {e}")
-        import traceback
-        traceback.print_exc()
-    finally:
-        if 'db_manager' in locals():
-            db_manager.close_all()
+            logger.info(f"Moved {source.name} to {
