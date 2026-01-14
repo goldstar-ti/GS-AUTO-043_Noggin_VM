@@ -1,23 +1,20 @@
 from common import ConfigLoader, LoggerManager, DatabaseConnectionManager, CSVImporter
-from common import UNKNOWN_TEXT
 import logging
 from typing import Dict, Any
 import sys
 
-config: ConfigLoader = ConfigLoader(
-    'config/base_config.ini',
-    'config/load_compliance_check_driver_loader_config.ini'
-)
+config: ConfigLoader = ConfigLoader('config/base_config.ini')
 
-logger_manager: LoggerManager = LoggerManager(config, script_name='test_csv_importer')
+logger_manager: LoggerManager = LoggerManager(config, script_name='import_csv_tips')
 logger_manager.configure_application_logger()
 
 logger: logging.Logger = logging.getLogger(__name__)
 
 try:
-    logger.info("Initialising CSV importer...")
+    logger.info("Initialising CSV importer (Manual Mode)...")
     db_manager: DatabaseConnectionManager = DatabaseConnectionManager(config)
 
+    # --- TRUNCATION PROMPT START ---
     print("\n" + "="*60)
     print(" DATABASE CLEANUP OPTIONS")
     print("="*60)
@@ -89,7 +86,7 @@ try:
 except KeyboardInterrupt:
     print("\nOperation cancelled by user.")
 except Exception as e:
-    logger.error(f"Test failed: {e}", exc_info=True)
+    logger.error(f"Import failed: {e}", exc_info=True)
     print(f"✗ Error: {e}")
 finally:
     if 'db_manager' in locals():

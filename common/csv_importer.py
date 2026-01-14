@@ -731,4 +731,51 @@ class CSVImporter:
         
         try:
             source.rename(destination)
-            logger.info(f"Moved {source.name} to {
+            logger.info(f"Moved {source.name} to {destination_folder.name}/")
+            return destination
+        except Exception as e:
+            logger.error(f"Failed to move {source.name}: {e}")
+            return None
+
+
+def detect_object_type(headers: List[str]) -> Optional[str]:
+    """Legacy compatibility"""
+    config = detect_object_type_from_headers(headers)
+    return config.abbreviation if config else None
+
+
+if __name__ == "__main__":
+    import sys
+    from pathlib import Path
+    
+    script_dir = Path(__file__).parent.parent
+    sys.path.insert(0, str(script_dir))
+    
+    from common import ConfigLoader, DatabaseConnectionManager, LoggerManager
+    
+    try:
+        config = ConfigLoader('config/base_config.ini')
+        
+        logger_manager = LoggerManager(config, script_name='csv_importer')
+        logger_manager.configure_application_logger()
+        
+        db_manager = DatabaseConnectionManager(config)
+        importer = CSVImporter(config, db_manager)
+        
+        summary = importer.scan_and_import()
+        
+        print(f"\nCSV Import Summary:")
+        print(f"  Files processed: {summary['files_processed']}")
+        print(f"  Files succeeded: {summary['files_succeeded']}")
+        print(f"  Files failed: {summary['files_failed']}")
+        print(f"  TIPs imported: {summary['total_imported']}")
+        print(f"  Duplicates skipped: {summary['total_duplicates']}")
+        print(f"  Errors: {summary['total_errors']}")
+        
+    except Exception as e:
+        print(f"Error: {e}")
+        import traceback
+        traceback.print_exc()
+    finally:
+        if 'db_manager' in locals():
+            db_manager.close_all()
