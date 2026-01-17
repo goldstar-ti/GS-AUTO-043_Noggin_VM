@@ -3230,13 +3230,13 @@ This section contains the contents of the repository's files.
 17:             </tr>
 18:         </thead>
 19:         <tbody>
-20:             {% for entity_type in ['vehicle', 'trailer', 'department', 'team'] %}
-21:             {% set known = stats.get(entity_type, {}).get('known', 0) %}
-22:             {% set unknown = stats.get(entity_type, {}).get('unknown', 0) %}
+20:             {% for object_type in ['vehicle', 'trailer', 'department', 'team'] %}
+21:             {% set known = stats.get(object_type, {}).get('known', 0) %}
+22:             {% set unknown = stats.get(object_type, {}).get('unknown', 0) %}
 23:             {% set total = known + unknown %}
 24:             {% set coverage = (known / total * 100) if total > 0 else 0 %}
 25:             <tr>
-26:                 <td><strong>{{ entity_type.capitalize() }}</strong></td>
+26:                 <td><strong>{{ object_type.capitalize() }}</strong></td>
 27:                 <td>{{ known }}</td>
 28:                 <td>{{ unknown }}</td>
 29:                 <td>
@@ -3267,7 +3267,7 @@ This section contains the contents of the repository's files.
 54:         <p>The following entity types have unresolved hashes:</p>
 55:         <ul>
 56:             {% for item in unknown_counts %}
-57:             <li><strong>{{ item.entity_type.capitalize() }}:</strong> {{ item.count }} unknown hashes</li>
+57:             <li><strong>{{ item.object_type.capitalize() }}:</strong> {{ item.count }} unknown hashes</li>
 58:             {% endfor %}
 59:         </ul>
 60:         <p>Use the CLI tool to export and resolve: <code>python manage_hashes.py export-unknown [type] --gui</code></p>
@@ -5764,11 +5764,11 @@ This section contains the contents of the repository's files.
 371:         # Get unknown hashes count by type
 372:         unknown_query = """
 373:             SELECT 
-374:                 entity_type,
+374:                 object_type,
 375:                 COUNT(*) as count
 376:             FROM unknown_hashes
 377:             WHERE resolved_at IS NULL
-378:             GROUP BY entity_type
+378:             GROUP BY object_type
 379:         """
 380:         unknown_counts = db_manager.execute_query_dict(unknown_query)
 381:         
@@ -11111,11 +11111,11 @@ This section contains the contents of the repository's files.
 236:         # Get unknown hashes count by type
 237:         unknown_query = """
 238:             SELECT 
-239:                 entity_type,
+239:                 object_type,
 240:                 COUNT(*) as count
 241:             FROM unknown_hashes
 242:             WHERE resolved_at IS NULL
-243:             GROUP BY entity_type
+243:             GROUP BY object_type
 244:         """
 245:         unknown_counts = db_manager.execute_query_dict(unknown_query)
 246:         

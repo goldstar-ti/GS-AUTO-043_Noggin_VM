@@ -17,13 +17,13 @@
             </tr>
         </thead>
         <tbody>
-            {% for entity_type in ['vehicle', 'trailer', 'department', 'team'] %}
-            {% set known = stats.get(entity_type, {}).get('known', 0) %}
-            {% set unknown = stats.get(entity_type, {}).get('unknown', 0) %}
+            {% for object_type in ['vehicle', 'trailer', 'department', 'team'] %}
+            {% set known = stats.get(object_type, {}).get('known', 0) %}
+            {% set unknown = stats.get(object_type, {}).get('unknown', 0) %}
             {% set total = known + unknown %}
             {% set coverage = (known / total * 100) if total > 0 else 0 %}
             <tr>
-                <td><strong>{{ entity_type.capitalize() }}</strong></td>
+                <td><strong>{{ object_type.capitalize() }}</strong></td>
                 <td>{{ known }}</td>
                 <td>{{ unknown }}</td>
                 <td>
@@ -54,7 +54,7 @@
         <p>The following entity types have unresolved hashes:</p>
         <ul>
             {% for item in unknown_counts %}
-            <li><strong>{{ item.entity_type.capitalize() }}:</strong> {{ item.count }} unknown hashes</li>
+            <li><strong>{{ item.object_type.capitalize() }}:</strong> {{ item.count }} unknown hashes</li>
             {% endfor %}
         </ul>
         <p>Use the CLI tool to export and resolve: <code>python manage_hashes.py export-unknown [type] --gui</code></p>

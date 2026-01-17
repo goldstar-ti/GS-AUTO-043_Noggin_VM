@@ -251,10 +251,10 @@ def hashes():
     try:
         stats = hash_manager.get_statistics()
         unknown_query = """
-            SELECT entity_type, COUNT(*) as count
+            SELECT object_type, COUNT(*) as count
             FROM unknown_hashes
             WHERE resolved_at IS NULL
-            GROUP BY entity_type
+            GROUP BY object_type
         """
         unknown_counts = db_manager.execute_query_dict(unknown_query)
         return render_template('hashes.html', stats=stats, unknown_counts=unknown_counts)

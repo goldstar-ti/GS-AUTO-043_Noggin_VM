@@ -371,11 +371,11 @@ def hashes():
         # Get unknown hashes count by type
         unknown_query = """
             SELECT 
-                entity_type,
+                object_type,
                 COUNT(*) as count
             FROM unknown_hashes
             WHERE resolved_at IS NULL
-            GROUP BY entity_type
+            GROUP BY object_type
         """
         unknown_counts = db_manager.execute_query_dict(unknown_query)
         

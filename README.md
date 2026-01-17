@@ -353,7 +353,7 @@ Maps entity hashes to human-readable names.
 
 **Key Columns:**
 - `hash_value` (PK) - Hash from API
-- `entity_type` - vehicle, trailer, department, team
+- `object_type` - vehicle, trailer, department, team
 - `entity_name` - Resolved name
 - `source` - How it was obtained
 
