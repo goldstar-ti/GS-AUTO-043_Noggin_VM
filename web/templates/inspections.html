@@ -4,6 +4,7 @@
 
 {% block extra_css %}
 <style>
+    /* --- Main Panel --- */
     .filter-panel {
         background: white;
         padding: 1.5rem;
@@ -13,50 +14,103 @@
         border-top: 3px solid var(--gs-slate);
     }
 
-    .filter-grid {
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-        gap: 1rem;
-        margin-bottom: 1rem;
+    /* --- Top Row Layout (Groups) --- */
+    .filter-logic-row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 1.5rem;
+        margin-bottom: 1.5rem;
+        align-items: stretch;
     }
 
-    .filter-group {
+    /* Standard Grouping (Vertical Stack of label/input) */
+    .logic-group {
+        display: flex;
+        gap: 1rem;
+        flex: 1; /* Allow growing */
+        min-width: 250px;
+    }
+
+    .input-wrapper {
+        flex: 1;
         display: flex;
         flex-direction: column;
     }
 
-    .filter-group label {
-        font-size: 0.85rem;
+    .input-wrapper label {
+        font-size: 0.8rem;
         font-weight: 600;
         color: var(--gs-slate);
         margin-bottom: 0.4rem;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
     }
 
-    .filter-group input, 
-    .filter-group select {
+    .input-wrapper input, 
+    .input-wrapper select {
         padding: 0.6rem;
         border: 1px solid #ddd;
         border-radius: 4px;
         font-size: 0.95rem;
         width: 100%;
+        height: 40px; /* Enforce uniform height */
+    }
+
+    /* --- Special Date Frame (Fieldset) --- */
+    .date-frame {
+        border: 1px solid #e0e0e0;
+        border-radius: 6px;
+        padding: 0.5rem 1rem 1rem 1rem;
+        display: flex;
+        gap: 1rem;
+        flex: 1.2; /* Give dates slightly more room */
+        min-width: 300px;
+    }
+
+    .date-frame legend {
+        font-size: 0.8rem;
+        font-weight: 600;
+        color: var(--gs-slate);
+        padding: 0 0.5rem;
+    }
+
+    /* Search Bar Row (Full Width) */
+    .search-row {
+        margin-top: 1rem;
+        border-top: 1px dashed #eee;
+        padding-top: 1rem;
+    }
+
+    /* --- Button Normalization Fix --- */
+    .filter-actions {
+        display: flex;
+        justify-content: flex-end;
+        gap: 0.8rem;
+        margin-top: 1.5rem;
+    }
+
+    /* Force both <a> and <button> to behave identically */
+    .filter-actions .btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        height: 40px;
+        padding: 0 1.5rem;
+        font-size: 0.95rem;
+        text-decoration: none;
+        box-sizing: border-box; /* Critical for size matching */
+        border: none;
+        cursor: pointer;
+        font-family: inherit;
+        vertical-align: middle;
     }
     
-    .filter-group input:focus, 
-    .filter-group select:focus {
+    /* Input focus states */
+    input:focus, select:focus {
         outline: none;
         border-color: var(--gs-gold);
         box-shadow: 0 0 0 2px rgba(242, 196, 56, 0.2);
     }
-
-    .filter-actions {
-        display: flex;
-        justify-content: flex-end;
-        gap: 0.5rem;
-        padding-top: 1rem;
-        border-top: 1px solid #eee;
-    }
-    
-    /* Buttons now inherit from base.html, so we don't need to define colors here */
 </style>
 {% endblock %}
 
@@ -64,67 +118,67 @@
 <div class="filter-panel">
     <h3>🔍 Search & Filter</h3>
     <form method="get" action="{{ url_for('inspections') }}">
-        <div class="filter-grid">
+        
+        <div class="filter-logic-row">
             
-            <!-- Object Type -->
-            <div class="filter-group">
-                <label>Object Type</label>
-                <select name="object_type">
-                    <option value="">All Types</option>
-                    {% for type in options.object_types %}
-                        <option value="{{ type }}" {% if filters.object_type == type %}selected{% endif %}>
-                            {{ type }}
-                        </option>
-                    {% endfor %}
-                </select>
+            <div class="logic-group">
+                <div class="input-wrapper">
+                    <label>Object Type</label>
+                    <select name="object_type">
+                        <option value="">All Types</option>
+                        {% for type in options.object_types %}
+                            <option value="{{ type }}" {% if filters.object_type == type %}selected{% endif %}>
+                                {{ type }}
+                            </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="input-wrapper">
+                    <label>Status</label>
+                    <select name="status">
+                        <option value="">All Statuses</option>
+                        <option value="complete" {% if filters.status == 'complete' %}selected{% endif %}>Complete</option>
+                        <option value="pending" {% if filters.status == 'pending' %}selected{% endif %}>Pending</option>
+                        <option value="failed" {% if filters.status == 'failed' %}selected{% endif %}>Failed</option>
+                    </select>
+                </div>
             </div>
 
-            <!-- Vehicle (Datalist for searchability) -->
-            <div class="filter-group">
-                <label>Vehicle</label>
-                <input list="vehicles" name="vehicle" placeholder="e.g. V001" value="{{ filters.vehicle }}">
-                <datalist id="vehicles">
-                    {% for v in options.vehicles %}
-                        <option value="{{ v }}">
-                    {% endfor %}
-                </datalist>
+            <div class="logic-group">
+                <div class="input-wrapper">
+                    <label>Vehicle</label>
+                    <input list="vehicles" name="vehicle" placeholder="e.g. V001" value="{{ filters.vehicle }}">
+                    <datalist id="vehicles">
+                        {% for v in options.vehicles %}
+                            <option value="{{ v }}">
+                        {% endfor %}
+                    </datalist>
+                </div>
+                <div class="input-wrapper">
+                    <label>Trailer</label>
+                    <input type="text" name="trailer" placeholder="e.g. T100" value="{{ filters.trailer }}">
+                </div>
             </div>
 
-            <!-- Trailer -->
-            <div class="filter-group">
-                <label>Trailer</label>
-                <input type="text" name="trailer" placeholder="e.g. T100" value="{{ filters.trailer }}">
-            </div>
+            <fieldset class="date-frame">
+                <legend>Date Range</legend>
+                <div class="input-wrapper">
+                    <label>From</label>
+                    <input type="date" name="date_from" value="{{ filters.date_from }}">
+                </div>
+                <div class="input-wrapper">
+                    <label>To</label>
+                    <input type="date" name="date_to" value="{{ filters.date_to }}">
+                </div>
+            </fieldset>
 
-            <!-- Processing Status -->
-            <div class="filter-group">
-                <label>Status</label>
-                <select name="status">
-                    <option value="">All Statuses</option>
-                    <option value="complete" {% if filters.status == 'complete' %}selected{% endif %}>Complete</option>
-                    <option value="pending" {% if filters.status == 'pending' %}selected{% endif %}>Pending</option>
-                    <option value="failed" {% if filters.status == 'failed' %}selected{% endif %}>Failed</option>
-                </select>
-            </div>
+        </div>
 
-            <!-- Date Range From -->
-            <div class="filter-group">
-                <label>From Date</label>
-                <input type="date" name="date_from" value="{{ filters.date_from }}">
-            </div>
-
-            <!-- Date Range To -->
-            <div class="filter-group">
-                <label>To Date</label>
-                <input type="date" name="date_to" value="{{ filters.date_to }}">
-            </div>
-            
-            <!-- General Search -->
-            <div class="filter-group" style="grid-column: 1 / -1;">
+        <div class="search-row">
+            <div class="input-wrapper">
                 <label>Keyword Search (LCD ID, Team, Department, etc)</label>
-                <input type="text" name="search" placeholder="Type to search..." value="{{ filters.search_text }}">
+                <input type="text" name="search" placeholder="Type to search..." value="{{ filters.search_text }}" style="width: 100%;">
             </div>
-
         </div>
 
         <div class="filter-actions">

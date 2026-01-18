@@ -230,10 +230,10 @@ def inspection_detail(tip):
             
         inspection = results[0]
         
-        att_query = "SELECT * FROM attachments WHERE tip = %s ORDER BY created_at"
+        att_query = "SELECT * FROM attachments WHERE record_tip = %s ORDER BY created_at"
         attachments = db_manager.execute_query_dict(att_query, (tip,))
         
-        err_query = "SELECT * FROM processing_errors WHERE tip = %s ORDER BY created_at DESC"
+        err_query = "SELECT * FROM processing_errors WHERE tip = %s ORDER BY error_timestamp DESC"
         errors = db_manager.execute_query_dict(err_query, (tip,))
         
         return render_template(
@@ -251,10 +251,10 @@ def hashes():
     try:
         stats = hash_manager.get_statistics()
         unknown_query = """
-            SELECT object_type, COUNT(*) as count
+            SELECT lookup_type, COUNT(*) as count
             FROM unknown_hashes
             WHERE resolved_at IS NULL
-            GROUP BY object_type
+            GROUP BY lookup_type
         """
         unknown_counts = db_manager.execute_query_dict(unknown_query)
         return render_template('hashes.html', stats=stats, unknown_counts=unknown_counts)

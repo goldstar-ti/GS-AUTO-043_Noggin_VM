@@ -54,7 +54,7 @@
         <p>The following entity types have unresolved hashes:</p>
         <ul>
             {% for item in unknown_counts %}
-            <li><strong>{{ item.object_type.capitalize() }}:</strong> {{ item.count }} unknown hashes</li>
+            <li><strong>{{ item.lookup_type.capitalize() }}:</strong> {{ item.count }} unknown hashes</li>
             {% endfor %}
         </ul>
         <p>Use the CLI tool to export and resolve: <code>python manage_hashes.py export-unknown [type] --gui</code></p>
