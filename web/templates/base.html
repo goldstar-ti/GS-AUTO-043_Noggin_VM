@@ -3,16 +3,15 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{% block title %}Noggin Processor{% endblock %}</title>
+    <title>{% block title %}NVM Noggin Virtual Machine{% endblock %}</title>
     <style>
-        /* --- GOLDSTAR THEME VARIABLES --- */
         :root {
             --gs-gold: #f2c438;
             --gs-gold-dark: #d4a928;
-            --gs-slate: #2c3e50;       /* Header Background */
-            --gs-slate-light: #34495e; /* Nav Background */
-            --gs-text: #2c3e50;        /* Main Text Color */
-            --gs-bg: #f4f6f7;          /* Page Background */
+            --gs-slate: #000000a3;
+            --gs-slate-light: #82909f8c;
+            --gs-text: #000000;
+            --gs-bg: #f1efe7;
         }
 
         * {
@@ -27,12 +26,10 @@
             color: var(--gs-text);
         }
         
-        /* --- BRANDED HEADER --- */
         .header {
             background: var(--gs-slate);
             color: white;
             padding: 1rem 2rem;
-            /* The Gold Accent Line */
             border-bottom: 5px solid var(--gs-gold);
             box-shadow: 0 2px 4px rgba(0,0,0,0.1);
         }
@@ -43,7 +40,6 @@
             letter-spacing: 0.5px;
         }
         
-        /* --- BRANDED NAVIGATION --- */
         .nav {
             background: var(--gs-slate-light);
             padding: 0 2rem;
@@ -66,7 +62,6 @@
             color: white;
         }
         
-        /* Active Link: Gold Text + Gold Underline */
         .nav a.active {
             color: var(--gs-gold);
             border-bottom-color: var(--gs-gold);
@@ -79,14 +74,13 @@
             padding: 0 1rem;
         }
         
-        /* --- CARDS & TABLES --- */
         .card {
             background: white;
             padding: 1.5rem;
             border-radius: 8px;
             box-shadow: 0 1px 3px rgba(0,0,0,0.1);
             margin-bottom: 1.5rem;
-            border-top: 3px solid transparent; /* Ready for accent */
+            border-top: 3px solid transparent;
         }
         
         h2, h3 {
@@ -103,7 +97,7 @@
         th {
             text-align: left;
             padding: 0.8rem;
-            background: var(--gs-slate-light); /* Slate Headers */
+            background: var(--gs-slate-light);
             color: white;
             font-weight: 500;
             border-radius: 4px 4px 0 0;
@@ -112,24 +106,21 @@
         td {
             padding: 0.8rem;
             border-bottom: 1px solid #eee;
-            /* --- CURSOR FIX: KEEPS POINTER, NO TEXT SELECT ICON --- */
             cursor: default;
         }
         
-        /* Hover effect on rows for readability */
         tr:hover td {
-            background-color: #fdfbf0; /* Very light yellow tint */
+            background-color: #fdfbf0;
         }
         
-        /* --- BUTTONS: GOLDSTAR STYLE --- */
         .btn, button {
             display: inline-block;
             background: var(--gs-gold);
-            color: var(--gs-slate); /* Dark text on Yellow for contrast */
+            color: var(--gs-slate);
             padding: 0.5rem 1rem;
             border-radius: 4px;
             text-decoration: none;
-            font-weight: 700; /* Bold text */
+            font-weight: 700;
             border: none;
             cursor: pointer;
             transition: background 0.2s;
@@ -145,7 +136,6 @@
         }
         .btn-secondary:hover { background: #d0d0d0; }
         
-        /* --- STATS GRID --- */
         .stats-grid {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
@@ -166,7 +156,6 @@
             font-size: 2rem;
             font-weight: bold;
             color: var(--gs-slate);
-            /* Cursor fix here too */
             cursor: default; 
         }
         
@@ -178,7 +167,6 @@
             margin-bottom: 0.5rem;
         }
         
-        /* Status Colors */
         .stat-card.success { border-color: #27ae60; }
         .stat-card.info { border-color: #3498db; }
         .stat-card.danger { border-color: #e74c3c; }
@@ -196,7 +184,6 @@
         .badge.warning { background: #fff3cd; color: #856404; }
         .badge.secondary { background: #e2e3e5; color: #383d41; }
 
-        /* Pagination */
         .pagination { margin-top: 1rem; display: flex; gap: 0.5rem; justify-content: center; }
         .pagination a { 
             padding: 0.5rem 1rem; 
@@ -213,7 +200,6 @@
             font-weight: bold;
         }
 
-        /* --- FLASH MESSAGES --- */
         .flash-messages {
             margin-bottom: 1rem;
         }
@@ -224,6 +210,14 @@
         }
         .flash.error { background: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
         .flash.success { background: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
+
+        code {
+            background: #f1f1f1;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-family: 'Courier New', monospace;
+            font-size: 0.9em;
+        }
     </style>
     {% block extra_css %}{% endblock %}
 </head>

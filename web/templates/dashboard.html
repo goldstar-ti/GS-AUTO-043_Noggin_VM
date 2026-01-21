@@ -5,21 +5,20 @@
 {% block content %}
 <!-- 1. STATUS GRID -->
 <div class="stats-grid">
-    <!-- Transport Theme Config -->
     {% set status_config = {
-        'complete': ('success', '🏁'),
-        'pending': ('info', '🚦'),
-        'failed': ('danger', '🛑'),
-        'partial': ('warning', '🚧'),
-        'api_error': ('danger', '🔧'),
-        'csv_imported': ('secondary', '📦'),
-        'interrupted': ('warning', '⛽')
+        'complete': ('success', 'Complete'),
+        'pending': ('info', 'Pending'),
+        'failed': ('danger', 'Failed'),
+        'partial': ('warning', 'Partial'),
+        'api_error': ('danger', 'API Error'),
+        'csv_imported': ('secondary', 'CSV Imported'),
+        'interrupted': ('warning', 'Interrupted')
     } %}
     
     {% for status, count in stats.items() %}
-        {% set config = status_config.get(status, ('secondary', '•')) %}
+        {% set config = status_config.get(status, ('secondary', status|upper)) %}
         <div class="stat-card {{ config[0] }}">
-            <div class="label">{{ config[1] }} {{ status|upper }}</div>
+            <div class="label">{{ config[1] }}</div>
             <div class="number">{{ count }}</div>
         </div>
     {% endfor %}
@@ -63,7 +62,7 @@
     </div>
 </div>
 
-<!-- 4. RECENT ACTIVITY (With User, Flags & NO Processing Time) -->
+<!-- 4. RECENT ACTIVITY -->
 <div class="card">
     <h2>Recent Activity</h2>
     <table>
@@ -81,12 +80,11 @@
         <tbody>
             {% for item in recent %}
             <tr>
-                <!-- ID Column with Health Flags -->
                 <td>
                     <strong>{{ item.noggin_reference or item.tip }}</strong>
                     
                     {% if item.has_unknown_hashes %}
-                        <span title="Unknown Hashes" style="cursor: help;">👻</span>
+                        <span title="Unknown Hashes" style="cursor: help; color: #e67e22;">?</span>
                     {% endif %}
                     
                     {% if item.retry_count and item.retry_count > 0 %}
@@ -97,7 +95,6 @@
                     <small style="color: #7f8c8d;">{{ item.object_type }}</small>
                 </td>
                 
-                <!-- Stacked User & Team Column -->
                 <td>
                     <div style="font-weight: 500;">
                         {% if item.derived_user %}
@@ -116,7 +113,6 @@
                     </div>
                 </td>
 
-                <!-- Date with Year -->
                 <td>{{ item.inspection_date.strftime('%d-%m-%Y') if item.inspection_date else '' }}</td>
                 
                 <td>
@@ -131,7 +127,6 @@
                     <span class="badge {{ status_class }}">{{ item.processing_status }}</span>
                 </td>
 
-                <!-- Attachments -->
                 <td>
                     {% if item.total_attachments and item.total_attachments > 0 %}
                         {{ item.completed_attachment_count or 0 }}<span style="color: #95a5a6;">/{{ item.total_attachments }}</span>
@@ -140,7 +135,6 @@
                     {% endif %}
                 </td>
                 
-                <!-- Updated Time -->
                 <td>{{ item.updated_at.strftime('%H:%M') if item.updated_at else 'N/A' }}</td>
                 
                 <td>

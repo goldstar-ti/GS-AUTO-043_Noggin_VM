@@ -4,9 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{{ type_label }} - {{ inspection_id }}</title>
-    <!-- Bootstrap 5 CSS -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <!-- FontAwesome -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     
     <style>
@@ -14,7 +12,6 @@
             background-color: #f0f2f5;
             font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
         }
-        /* Nice header styling */
         .header-banner {
             background: #ffffff;
             border-bottom: 4px solid #0d6efd;
@@ -31,7 +28,6 @@
             vertical-align: middle;
             margin-right: 10px;
         }
-        /* Field Layout */
         .details-card {
             background: white;
             border: none;
@@ -73,7 +69,6 @@
             width: 60%;
             word-break: break-word;
         }
-        /* Attachment Styling */
         .attachment-list {
             list-style: none;
             padding: 0;
@@ -93,7 +88,6 @@
             border-color: #0d6efd;
             box-shadow: 0 2px 8px rgba(13, 110, 253, 0.1);
         }
-        /* Modal */
         .modal-content-wrapper {
             background: #e9ecef;
             min-height: 300px;
@@ -111,13 +105,25 @@
             height: 80vh;
             border: none;
         }
+        .back-link {
+            color: #6c757d;
+            text-decoration: none;
+            font-size: 0.9rem;
+        }
+        .back-link:hover {
+            color: #0d6efd;
+        }
     </style>
 </head>
 <body>
 
-    <!-- Header -->
     <div class="header-banner">
         <div class="container">
+            <div class="mb-2">
+                <a href="{{ url_for('inspections') }}" class="back-link">
+                    <i class="fas fa-arrow-left me-1"></i> Back to Inspections
+                </a>
+            </div>
             <div class="d-flex justify-content-between align-items-center">
                 <div>
                     <h5 class="text-muted text-uppercase mb-1" style="font-size: 0.85rem; letter-spacing: 1px;">Inspection Record</h5>
@@ -127,18 +133,16 @@
                     </h2>
                 </div>
                 <div>
-                    <a href="/inspection/{{ inspection_id }}/eml" class="btn btn-dark btn-lg shadow-sm">
-                        <i class="fas fa-envelope-open-text me-2"></i> Generate .EML
+                    <a href="{{ url_for('download_eml', tip=inspection.tip) }}" class="btn btn-dark btn-lg shadow-sm">
+                        <i class="fas fa-envelope-open-text me-2"></i> Download .EML
                     </a>
                 </div>
             </div>
         </div>
     </div>
 
-    <!-- Main Content -->
     <div class="container">
         <div class="row">
-            <!-- Left: Inspection Fields -->
             <div class="col-lg-8">
                 <div class="details-card">
                     <div class="card-header-custom">
@@ -159,9 +163,24 @@
                         {% endif %}
                     </div>
                 </div>
+
+                {% if errors %}
+                <div class="details-card">
+                    <div class="card-header-custom" style="color: #dc3545;">
+                        <i class="fas fa-exclamation-triangle me-2"></i> Processing Errors
+                    </div>
+                    <div class="card-body-custom">
+                        {% for error in errors %}
+                        <div class="field-row">
+                            <div class="field-label">{{ error.error_type }}<br><small class="text-muted">{{ error.created_at.strftime('%d-%m-%Y %H:%M') if error.created_at else '' }}</small></div>
+                            <div class="field-value text-danger">{{ error.error_message }}</div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+                {% endif %}
             </div>
 
-            <!-- Right: Attachments -->
             <div class="col-lg-4">
                 <div class="details-card">
                     <div class="card-header-custom">
@@ -178,13 +197,24 @@
                                         </div>
                                         <div class="text-truncate">
                                             <div class="fw-bold text-dark" style="font-size: 0.9rem;">{{ att.filename }}</div>
-                                            <div class="text-muted small">ID: {{ att.attachment_tip[:8] }}...</div>
+                                            <div class="text-muted small">
+                                                {% if att.file_size_bytes %}
+                                                    {{ (att.file_size_bytes / 1024)|round(1) }} KB
+                                                {% endif %}
+                                                {% if att.attachment_status != 'complete' %}
+                                                    <span class="badge bg-warning text-dark">{{ att.attachment_status }}</span>
+                                                {% endif %}
+                                            </div>
                                         </div>
                                     </div>
+                                    {% if att.attachment_status == 'complete' %}
                                     <button class="btn btn-outline-primary btn-sm" 
                                             onclick="openAttachment('{{ att.attachment_tip }}', '{{ att.filename }}')">
                                         View
                                     </button>
+                                    {% else %}
+                                    <span class="text-muted small">Pending</span>
+                                    {% endif %}
                                 </li>
                             {% endfor %}
                             </ul>
@@ -193,11 +223,39 @@
                         {% endif %}
                     </div>
                 </div>
+
+                <div class="details-card">
+                    <div class="card-header-custom">
+                        <i class="fas fa-info-circle me-2"></i> Processing Status
+                    </div>
+                    <div class="card-body-custom pt-3">
+                        <div class="field-row">
+                            <div class="field-label">Status</div>
+                            <div class="field-value">
+                                {% set status_class = {
+                                    'complete': 'success',
+                                    'pending': 'info',
+                                    'failed': 'danger',
+                                    'partial': 'warning',
+                                    'csv_imported': 'secondary'
+                                }.get(inspection.processing_status, 'secondary') %}
+                                <span class="badge bg-{{ status_class }}">{{ inspection.processing_status }}</span>
+                            </div>
+                        </div>
+                        <div class="field-row">
+                            <div class="field-label">Retry Count</div>
+                            <div class="field-value">{{ inspection.retry_count or 0 }}</div>
+                        </div>
+                        <div class="field-row">
+                            <div class="field-label">Last Updated</div>
+                            <div class="field-value">{{ inspection.updated_at.strftime('%d-%m-%Y %H:%M') if inspection.updated_at else 'N/A' }}</div>
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
 
-    <!-- Attachment Viewer Modal -->
     <div class="modal fade" id="attachmentModal" tabindex="-1" aria-hidden="true">
         <div class="modal-dialog modal-xl">
             <div class="modal-content">
@@ -206,46 +264,38 @@
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
                 <div class="modal-body p-0 modal-content-wrapper" id="modalBody">
-                    <!-- Content injected by JS -->
                 </div>
             </div>
         </div>
     </div>
 
-    <!-- Bootstrap Bundle with Popper -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 
     <script>
-        const inspectionId = "{{ inspection_id }}";
+        const inspectionTip = "{{ inspection.tip }}";
 
-        function openAttachment(tip, filename) {
+        function openAttachment(attachmentTip, filename) {
             const modalEl = document.getElementById('attachmentModal');
             const modalBody = document.getElementById('modalBody');
             const modalTitle = document.getElementById('attachmentModalLabel');
             
-            // Set Title
             modalTitle.textContent = filename;
-            
-            // Show Spinner
             modalBody.innerHTML = '<div class="spinner-border text-primary m-5" role="status"><span class="visually-hidden">Loading...</span></div>';
             
             const modal = new bootstrap.Modal(modalEl);
             modal.show();
 
-            // Determine content type
             const ext = filename.split('.').pop().toLowerCase();
-            const url = `/inspection/${inspectionId}/attachment/${tip}`;
+            const url = `/inspection/${inspectionTip}/attachment/${attachmentTip}`;
             
-            // Allow a brief moment for spinner to render
             setTimeout(() => {
                 let content = '';
                 
-                if (['jpg', 'jpeg', 'png', 'gif', 'bmp'].includes(ext)) {
+                if (['jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp'].includes(ext)) {
                     content = `<img src="${url}" id="modalImage" alt="${filename}">`;
                 } else if (ext === 'pdf' || ext === 'txt') {
                     content = `<iframe src="${url}"></iframe>`;
                 } else {
-                    // Fallback for non-previewable types
                     content = `
                         <div class="text-center p-5">
                             <i class="fas fa-file-download fa-3x text-muted mb-3"></i>

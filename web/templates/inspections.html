@@ -4,7 +4,6 @@
 
 {% block extra_css %}
 <style>
-    /* --- Main Panel --- */
     .filter-panel {
         background: white;
         padding: 1.5rem;
@@ -14,7 +13,6 @@
         border-top: 3px solid var(--gs-slate);
     }
 
-    /* --- Top Row Layout (Groups) --- */
     .filter-logic-row {
         display: flex;
         flex-wrap: wrap;
@@ -23,11 +21,10 @@
         align-items: stretch;
     }
 
-    /* Standard Grouping (Vertical Stack of label/input) */
     .logic-group {
         display: flex;
         gap: 1rem;
-        flex: 1; /* Allow growing */
+        flex: 1;
         min-width: 250px;
     }
 
@@ -53,17 +50,16 @@
         border-radius: 4px;
         font-size: 0.95rem;
         width: 100%;
-        height: 40px; /* Enforce uniform height */
+        height: 40px;
     }
 
-    /* --- Special Date Frame (Fieldset) --- */
     .date-frame {
         border: 1px solid #e0e0e0;
         border-radius: 6px;
         padding: 0.5rem 1rem 1rem 1rem;
         display: flex;
         gap: 1rem;
-        flex: 1.2; /* Give dates slightly more room */
+        flex: 1.2;
         min-width: 300px;
     }
 
@@ -74,14 +70,12 @@
         padding: 0 0.5rem;
     }
 
-    /* Search Bar Row (Full Width) */
     .search-row {
         margin-top: 1rem;
         border-top: 1px dashed #eee;
         padding-top: 1rem;
     }
 
-    /* --- Button Normalization Fix --- */
     .filter-actions {
         display: flex;
         justify-content: flex-end;
@@ -89,7 +83,6 @@
         margin-top: 1.5rem;
     }
 
-    /* Force both <a> and <button> to behave identically */
     .filter-actions .btn {
         display: inline-flex;
         align-items: center;
@@ -98,14 +91,13 @@
         padding: 0 1.5rem;
         font-size: 0.95rem;
         text-decoration: none;
-        box-sizing: border-box; /* Critical for size matching */
+        box-sizing: border-box;
         border: none;
         cursor: pointer;
         font-family: inherit;
         vertical-align: middle;
     }
     
-    /* Input focus states */
     input:focus, select:focus {
         outline: none;
         border-color: var(--gs-gold);
@@ -116,7 +108,7 @@
 
 {% block content %}
 <div class="filter-panel">
-    <h3>🔍 Search & Filter</h3>
+    <h3>Search and Filter</h3>
     <form method="get" action="{{ url_for('inspections') }}">
         
         <div class="filter-logic-row">
@@ -140,6 +132,7 @@
                         <option value="complete" {% if filters.status == 'complete' %}selected{% endif %}>Complete</option>
                         <option value="pending" {% if filters.status == 'pending' %}selected{% endif %}>Pending</option>
                         <option value="failed" {% if filters.status == 'failed' %}selected{% endif %}>Failed</option>
+                        <option value="csv_imported" {% if filters.status == 'csv_imported' %}selected{% endif %}>CSV Imported</option>
                     </select>
                 </div>
             </div>
@@ -147,7 +140,7 @@
             <div class="logic-group">
                 <div class="input-wrapper">
                     <label>Vehicle</label>
-                    <input list="vehicles" name="vehicle" placeholder="e.g. V001" value="{{ filters.vehicle }}">
+                    <input list="vehicles" name="vehicle" placeholder="e.g. MB26" value="{{ filters.vehicle or '' }}">
                     <datalist id="vehicles">
                         {% for v in options.vehicles %}
                             <option value="{{ v }}">
@@ -156,7 +149,7 @@
                 </div>
                 <div class="input-wrapper">
                     <label>Trailer</label>
-                    <input type="text" name="trailer" placeholder="e.g. T100" value="{{ filters.trailer }}">
+                    <input type="text" name="trailer" placeholder="e.g. T107" value="{{ filters.trailer or '' }}">
                 </div>
             </div>
 
@@ -164,11 +157,11 @@
                 <legend>Date Range</legend>
                 <div class="input-wrapper">
                     <label>From</label>
-                    <input type="date" name="date_from" value="{{ filters.date_from }}">
+                    <input type="date" name="date_from" value="{{ filters.date_from or '' }}">
                 </div>
                 <div class="input-wrapper">
                     <label>To</label>
-                    <input type="date" name="date_to" value="{{ filters.date_to }}">
+                    <input type="date" name="date_to" value="{{ filters.date_to or '' }}">
                 </div>
             </fieldset>
 
@@ -176,8 +169,8 @@
 
         <div class="search-row">
             <div class="input-wrapper">
-                <label>Keyword Search (LCD ID, Team, Department, etc)</label>
-                <input type="text" name="search" placeholder="Type to search..." value="{{ filters.search_text }}" style="width: 100%;">
+                <label>Keyword Search (Reference, Team, Department, Vehicle)</label>
+                <input type="text" name="search" placeholder="Type to search..." value="{{ filters.search_text or '' }}" style="width: 100%;">
             </div>
         </div>
 
@@ -191,7 +184,7 @@
 <div class="card">
     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
         <h3>Results ({{ total }})</h3>
-        {% if filters.object_type or filters.vehicle or filters.date_from %}
+        {% if filters.object_type or filters.vehicle or filters.date_from or filters.status or filters.search_text %}
             <span class="badge info">Filters Active</span>
         {% endif %}
     </div>
@@ -227,8 +220,9 @@
                         'complete': 'success',
                         'pending': 'info',
                         'failed': 'danger',
-                        'partial': 'warning'
-                    }.get(inspection.processing_status.lower(), 'secondary') %}
+                        'partial': 'warning',
+                        'csv_imported': 'secondary'
+                    }.get(inspection.processing_status, 'secondary') %}
                     <span class="badge {{ status_class }}">{{ inspection.processing_status }}</span>
                 </td>
                 <td>{{ inspection.completed_attachment_count or 0 }} / {{ inspection.total_attachments or 0 }}</td>
@@ -249,13 +243,13 @@
     {% if total_pages > 1 %}
     <div class="pagination">
         {% if page > 1 %}
-            <a href="{{ url_for('inspections', page=page-1, **filters) }}">← Previous</a>
+            <a href="{{ url_for('inspections', page=page-1, object_type=filters.object_type, status=filters.status, vehicle=filters.vehicle, trailer=filters.trailer, date_from=filters.date_from, date_to=filters.date_to, search=filters.search_text) }}">Previous</a>
         {% endif %}
         
         <span style="padding: 0.5rem 1rem;">Page {{ page }} of {{ total_pages }}</span>
         
         {% if page < total_pages %}
-            <a href="{{ url_for('inspections', page=page+1, **filters) }}">Next →</a>
+            <a href="{{ url_for('inspections', page=page+1, object_type=filters.object_type, status=filters.status, vehicle=filters.vehicle, trailer=filters.trailer, date_from=filters.date_from, date_to=filters.date_to, search=filters.search_text) }}">Next</a>
         {% endif %}
     </div>
     {% endif %}

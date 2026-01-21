@@ -9,14 +9,14 @@
     <div class="stats-grid">
         <div class="stat-card {% if service_active %}success{% else %}danger{% endif %}">
             <div class="label">Processor Service</div>
-            <div class="number">{{ '✓ Running' if service_active else '✗ Stopped' }}</div>
+            <div class="number">{{ 'Running' if service_active else 'Stopped' }}</div>
         </div>
     </div>
 </div>
 
 <div class="card">
     <h2>Recent Logs</h2>
-    <pre style="background: #2c3e50; color: #ecf0f1; padding: 1rem; border-radius: 4px; overflow-x: auto; max-height: 600px; overflow-y: auto;">{{ recent_logs }}</pre>
+    <pre style="background: #2c3e50; color: #ecf0f1; padding: 1rem; border-radius: 4px; overflow-x: auto; max-height: 600px; overflow-y: auto; font-size: 0.85em; line-height: 1.4;">{{ recent_logs }}</pre>
 </div>
 
 <div class="card">
