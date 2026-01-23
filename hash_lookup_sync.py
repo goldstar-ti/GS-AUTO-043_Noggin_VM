@@ -4,22 +4,28 @@ Hash Lookup Sync - Synchronise hash_lookup table from Noggin exports
 Reads asset and site CSV exports from Noggin and populates the hash_lookup table.
 Supports local file processing, pending folder scanning, and SFTP download.
 
+Additionally provides functionality to resolve unknown hash values in the database
+by looking them up in the updated hash_lookup table and regenerating text files.
+
 Usage:
     python hash_lookup_sync.py --process-pending
     python hash_lookup_sync.py --asset-file /path/to/asset.csv --site-file /path/to/site.csv
     python hash_lookup_sync.py --sftp
     python hash_lookup_sync.py --stats
+    python hash_lookup_sync.py --process-pending --resolve-unknown-hashes
 """
 
 from __future__ import annotations
 import argparse
+import json
 import logging
+import re
 import shutil
 import sys
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
-from typing import Optional
+from typing import Optional, Dict, List, Tuple, Any
 
 import pandas as pd
 
@@ -565,6 +571,311 @@ def print_statistics(stats: dict) -> None:
     print("=" * 60 + "\n")
 
 
+def extract_hash_from_unknown(value: str) -> Optional[str]:
+    """
+    Extract hash from 'Unknown (hash...)' format.
+    
+    Args:
+        value: String like "Unknown (103814bcd3232967...)" or just a hash
+        
+    Returns:
+        Extracted hash or None if not in expected format
+    """
+    if not value or not isinstance(value, str):
+        return None
+    
+    # Check if it starts with "Unknown"
+    if value.startswith('Unknown'):
+        # Pattern: Unknown (hash...) or Unknown
+        match = re.search(r'Unknown \(([a-f0-9]+)\.\.\.?\)', value)
+        if match:
+            return match.group(1)
+        return None
+    
+    # If it's just a plain hash, return as-is
+    if re.match(r'^[a-f0-9]{64}$', value):
+        return value
+    
+    return None
+
+
+def resolve_unknown_hashes(db_manager: 'DatabaseConnectionManager', 
+                          config: 'ConfigLoader',
+                          paths: dict,
+                          config_file_path: Path) -> Dict[str, int]:
+    """
+    Resolve unknown hash values in database and regenerate text files
+    
+    Queries noggin_data for records with 'Unknown' values in vehicle, trailer,
+    department, or team fields. Attempts to resolve using hash columns and 
+    updated hash_lookup table. Updates database and regenerates text files.
+    
+    Args:
+        db_manager: Database connection manager
+        config: Configuration loader
+        paths: Dictionary of paths including log directory
+        
+    Returns:
+        Dictionary with resolution statistics
+    """
+    import common
+    from datetime import datetime
+    from processors.report_generator import create_report_generator
+    
+    logger.info("Starting unknown hash resolution")
+    
+    # Setup log files
+    log_path = paths.get('log', Path('/mnt/data/noggin/etl/log'))
+    log_path.mkdir(parents=True, exist_ok=True)
+    
+    date_stamp = datetime.now().strftime('%Y%m%d')
+    audit_log_file = log_path / f'hash_resolution_audit_{date_stamp}.log'
+    manual_review_file = log_path / f'manual_hash_review_{date_stamp}.log'
+    
+    stats = {
+        'records_checked': 0,
+        'fields_resolved': 0,
+        'fields_unresolved': 0,
+        'reports_regenerated': 0,
+        'errors': 0
+    }
+    
+    # Query for records with Unknown values (excluding csv_imported)
+    query = """
+        SELECT tip, object_type, inspection_date, noggin_reference,
+               vehicle_hash, vehicle, trailer_hash, trailer, 
+               trailer2_hash, trailer2, trailer3_hash, trailer3,
+               department_hash, department, team_hash, team,
+               raw_json, source_filename
+        FROM noggin_schema.noggin_data
+        WHERE processing_status != 'csv_imported'
+          AND (vehicle LIKE 'Unknown%' 
+               OR trailer LIKE 'Unknown%'
+               OR trailer2 LIKE 'Unknown%' 
+               OR trailer3 LIKE 'Unknown%'
+               OR department LIKE 'Unknown%' 
+               OR team LIKE 'Unknown%')
+        ORDER BY inspection_date DESC
+    """
+    
+    try:
+        records = db_manager.execute_query_dict(query)
+        logger.info(f"Found {len(records)} records with unknown hash values")
+        
+        if not records:
+            logger.info("No records to process")
+            return stats
+        
+        # Initialize hash manager
+        hash_manager = common.HashManager(config, db_manager)
+        hash_manager.invalidate_cache()  # Force reload from updated hash_lookup table
+        
+        # Process each record
+        for record in records:
+            stats['records_checked'] += 1
+            tip = record['tip']
+            object_type = record['object_type']
+            inspection_id = record['noggin_reference']
+            
+            logger.info(f"Processing {object_type} {inspection_id} (TIP: {tip[:16]}...)")
+            
+            updates = {}
+            fields_resolved_this_record = []
+            fields_unresolved_this_record = []
+            
+            # Check each hash field
+            hash_fields = [
+                ('vehicle_hash', 'vehicle', 'vehicle'),
+                ('trailer_hash', 'trailer', 'trailer'),
+                ('trailer2_hash', 'trailer2', 'trailer'),
+                ('trailer3_hash', 'trailer3', 'trailer'),
+                ('department_hash', 'department', 'department'),
+                ('team_hash', 'team', 'team')
+            ]
+            
+            for hash_col, text_col, lookup_type in hash_fields:
+                text_value = record.get(text_col)
+                hash_value = record.get(hash_col)
+                
+                # Skip if text field doesn't start with Unknown or hash is missing
+                if not text_value or not hash_value:
+                    continue
+                if not text_value.startswith('Unknown'):
+                    continue
+                
+                # Try to resolve hash
+                resolved = hash_manager.lookup_hash(
+                    lookup_type, 
+                    hash_value, 
+                    tip, 
+                    inspection_id
+                )
+                
+                # Check if resolution succeeded (not "Unknown (...)")
+                if not resolved.startswith('Unknown'):
+                    updates[text_col] = resolved
+                    fields_resolved_this_record.append(f"{text_col}={resolved}")
+                    stats['fields_resolved'] += 1
+                    
+                    # Log to audit file
+                    with open(audit_log_file, 'a', encoding='utf-8') as f:
+                        timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+                        f.write(f"{timestamp} | {object_type} | {inspection_id} | "
+                               f"{text_col}: '{text_value}' -> '{resolved}'\n")
+                else:
+                    fields_unresolved_this_record.append(f"{text_col}={hash_value[:16]}...")
+                    stats['fields_unresolved'] += 1
+                    
+                    # Log to manual review file
+                    with open(manual_review_file, 'a', encoding='utf-8') as f:
+                        timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+                        f.write(f"{timestamp} | {object_type} | {inspection_id} | "
+                               f"{text_col} | {lookup_type} | {hash_value}\n")
+            
+            # Update database if any fields resolved
+            if updates:
+                update_fields = ', '.join([f"{col} = %s" for col in updates.keys()])
+                update_query = f"""
+                    UPDATE noggin_schema.noggin_data
+                    SET {update_fields}
+                    WHERE tip = %s
+                """
+                values = list(updates.values()) + [tip]
+                
+                try:
+                    db_manager.execute_update(update_query, values)
+                    logger.info(f"Updated {len(updates)} fields for {inspection_id}")
+                    
+                    # Regenerate text file
+                    if record.get('raw_json'):
+                        try:
+                            regenerate_text_file(
+                                record, updates, config, hash_manager, config_file_path
+                            )
+                            stats['reports_regenerated'] += 1
+                            logger.info(f"Regenerated report for {inspection_id}")
+                        except Exception as e:
+                            logger.error(f"Failed to regenerate report for {inspection_id}: {e}")
+                            stats['errors'] += 1
+                    
+                    logger.info(f"Resolved: {', '.join(fields_resolved_this_record)}")
+                    
+                except Exception as e:
+                    logger.error(f"Failed to update database for {inspection_id}: {e}")
+                    stats['errors'] += 1
+            
+            if fields_unresolved_this_record:
+                logger.warning(f"Unresolved: {', '.join(fields_unresolved_this_record)}")
+        
+        # Summary
+        logger.info("=" * 60)
+        logger.info("HASH RESOLUTION SUMMARY")
+        logger.info("=" * 60)
+        logger.info(f"Records checked:      {stats['records_checked']}")
+        logger.info(f"Fields resolved:      {stats['fields_resolved']}")
+        logger.info(f"Fields unresolved:    {stats['fields_unresolved']}")
+        logger.info(f"Reports regenerated:  {stats['reports_regenerated']}")
+        logger.info(f"Errors:               {stats['errors']}")
+        logger.info("=" * 60)
+        
+        if stats['fields_resolved'] > 0:
+            logger.info(f"Audit log: {audit_log_file}")
+        if stats['fields_unresolved'] > 0:
+            logger.info(f"Manual review log: {manual_review_file}")
+        
+        return stats
+        
+    except Exception as e:
+        logger.error(f"Hash resolution failed: {e}", exc_info=True)
+        stats['errors'] += 1
+        return stats
+
+
+def regenerate_text_file(record: Dict[str, Any], 
+                         updates: Dict[str, str],
+                         config: 'ConfigLoader',
+                         hash_manager: 'HashManager',
+                         config_file_path: Path) -> None:
+    """
+    Regenerate text file for a record with updated hash resolutions
+    
+    Args:
+        record: Database record with raw_json field
+        updates: Dictionary of field updates
+        config: Configuration loader
+        hash_manager: Hash manager instance
+        config_file_path: Path to base config file for deriving other config paths
+    """
+    import common
+    import json
+    from pathlib import Path
+    from processors.report_generator import create_report_generator
+    
+    # Parse raw JSON
+    try:
+        response_data = json.loads(record['raw_json'])
+    except (json.JSONDecodeError, TypeError) as e:
+        raise ValueError(f"Invalid JSON in raw_json field: {e}")
+    
+    # Update response_data with resolved values
+    # The hash fields stay the same, but we need to ensure the report
+    # generator will use the resolved values from the database
+    # Actually, we should reload the config for the specific object type
+    
+    object_type = record['object_type']
+    inspection_id = record['noggin_reference']
+    inspection_date = record['inspection_date']
+    
+    # Load object-specific config
+    object_configs = {
+        'LCD': 'load_compliance_check_driver_loader_config.ini',
+        'LCS': 'load_compliance_check_supervisor_manager_config.ini',
+        'CC': 'coupling_compliance_check_config.ini',
+        'TA': 'trailer_audits_config.ini',
+        'SO': 'site_observations_config.ini',
+        'FPI': 'forklift_prestart_inspection_config.ini'
+    }
+    
+    config_filename = object_configs.get(object_type)
+    if not config_filename:
+        raise ValueError(f"Unknown object type: {object_type}")
+    
+    # Determine config directory from base config path
+    config_dir = config_file_path.parent
+    obj_config_path = config_dir / config_filename
+    
+    # Load config for this object type
+    obj_config = common.ConfigLoader(str(obj_config_path))
+    
+    # Create report generator
+    report_gen = create_report_generator(obj_config, hash_manager)
+    
+    # Generate report
+    report = report_gen.generate_report(response_data, inspection_id)
+    
+    # Calculate output path
+    base_output_path = Path(config.get('paths', 'base_output_path', 
+                                       fallback='/mnt/data/noggin/out'))
+    
+    if inspection_date:
+        year = inspection_date.strftime('%Y')
+        month = inspection_date.strftime('%m')
+    else:
+        year = 'unknown'
+        month = 'unknown'
+    
+    # Build folder path: base/object_type/year/month/date_inspection_id
+    date_str = inspection_date.strftime('%Y-%m-%d') if inspection_date else 'unknown_date'
+    folder_name = f"{date_str} {inspection_id}"
+    
+    inspection_folder = base_output_path / object_type / year / month / folder_name
+    inspection_folder.mkdir(parents=True, exist_ok=True)
+    
+    # Save report (this will overwrite existing file)
+    date_iso = inspection_date.isoformat() if inspection_date else None
+    report_gen.save_report(report, inspection_folder, inspection_id, date_iso)
+
+
 def main() -> int:
     """Main entry point."""
     parser = argparse.ArgumentParser(
@@ -580,6 +891,9 @@ Examples:
     
     # Download and sync from SFTP
     python hash_lookup_sync.py --sftp
+    
+    # Sync and then resolve unknown hashes in database
+    python hash_lookup_sync.py --process-pending --resolve-unknown-hashes
     
     # Show current statistics only
     python hash_lookup_sync.py --stats
@@ -597,6 +911,8 @@ Examples:
     parser.add_argument('--stats', action='store_true', help='Show statistics only')
     parser.add_argument('--dry-run', action='store_true', help='Process files without database changes')
     parser.add_argument('--no-archive', action='store_true', help='Do not archive processed files')
+    parser.add_argument('--resolve-unknown-hashes', action='store_true',
+                       help='After sync, attempt to resolve unknown hashes in database and regenerate reports')
     parser.add_argument('--config', type=Path, default=Path('config/base_config.ini'),
                        help='Path to base config file')
     
@@ -733,6 +1049,18 @@ Examples:
         if not args.dry_run and all_records:
             stats = get_statistics(db_manager)
             print_statistics(stats)
+        
+        # Resolve unknown hashes if requested
+        if args.resolve_unknown_hashes and not args.dry_run:
+            logger.info("Starting unknown hash resolution process")
+            resolution_stats = resolve_unknown_hashes(db_manager, config, paths, args.config)
+            
+            print("\nHash Resolution Summary:")
+            print(f"  Records checked:      {resolution_stats['records_checked']}")
+            print(f"  Fields resolved:      {resolution_stats['fields_resolved']}")
+            print(f"  Fields unresolved:    {resolution_stats['fields_unresolved']}")
+            print(f"  Reports regenerated:  {resolution_stats['reports_regenerated']}")
+            print(f"  Errors:               {resolution_stats['errors']}")
         
         return 0
         

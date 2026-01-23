@@ -1,0 +1,23 @@
+[Unit]
+Description=Noggin Web Dashboard
+After=network.target postgresql.service
+Wants=postgresql.service
+
+[Service]
+Type=simple
+User=noggin_admin
+Group=noggin_admin
+WorkingDirectory=/home/noggin_admin/scripts/web
+Environment="PATH=/home/noggin_admin/scripts/.venv/bin:/usr/local/bin:/usr/bin:/bin"
+ExecStart=/home/noggin_admin/scripts/.venv/bin/gunicorn \
+    --workers 4 \
+    --bind 0.0.0.0:5000 \
+    --timeout 120 \
+    --access-logfile /mnt/data/noggin/log/web-access.log \
+    --error-logfile /mnt/data/noggin/log/web-error.log \
+    app:app
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

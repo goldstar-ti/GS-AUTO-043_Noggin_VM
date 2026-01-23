@@ -179,8 +179,6 @@ def index():
             ORDER BY updated_at DESC
             LIMIT 20
         """
-
-        recent = db_manager.execute_query_dict(recent_query)
         recent = db_manager.execute_query_dict(recent_query)
 
         return render_template(
@@ -324,10 +322,10 @@ def inspection_detail(tip: str):
         errors = []
         try:
             errors_query = """
-                SELECT error_type, error_message, created_at
+                SELECT error_type, error_message, error_timestamp as created_at
                 FROM noggin_schema.processing_errors
                 WHERE tip = %s
-                ORDER BY created_at DESC
+                ORDER BY error_timestamp DESC
                 LIMIT 10
             """
             errors = db_manager.execute_query_dict(errors_query, (tip,))
@@ -463,28 +461,71 @@ def hashes():
 @app.route('/service-status')
 @auth.login_required
 def service_status():
-    """Check background processor service status"""
+    """Check status of both web and processor services"""
+    
+    def get_service_info(service_name: str, log_lines: int = 50) -> dict:
+        """Helper to fetch service status and logs"""
+        try:
+            status_result = subprocess.run(
+                ['systemctl', 'is-active', service_name],
+                capture_output=True,
+                text=True
+            )
+            is_active = status_result.stdout.strip() == 'active'
+            
+            log_result = subprocess.run(
+                ['journalctl', '-u', service_name, '-n', str(log_lines), '--no-pager'],
+                capture_output=True,
+                text=True
+            )
+            logs = log_result.stdout or log_result.stderr or 'No logs available'
+            
+            # Get more detailed status
+            detail_result = subprocess.run(
+                ['systemctl', 'show', service_name, '--property=ActiveState,SubState,MainPID,MemoryCurrent'],
+                capture_output=True,
+                text=True
+            )
+            details = {}
+            for line in detail_result.stdout.strip().split('\n'):
+                if '=' in line:
+                    key, value = line.split('=', 1)
+                    details[key] = value
+            
+            return {
+                'name': service_name,
+                'active': is_active,
+                'state': details.get('ActiveState', 'unknown'),
+                'substate': details.get('SubState', 'unknown'),
+                'pid': details.get('MainPID', 'N/A'),
+                'memory': details.get('MemoryCurrent', 'N/A'),
+                'logs': logs
+            }
+        except Exception as e:
+            logger.warning(f"Could not get status for {service_name}: {e}")
+            return {
+                'name': service_name,
+                'active': False,
+                'state': 'error',
+                'substate': str(e),
+                'pid': 'N/A',
+                'memory': 'N/A',
+                'logs': f'Error fetching logs: {e}'
+            }
+    
     try:
-        result = subprocess.run(
-            ['systemctl', 'is-active', 'noggin-processor'],
-            capture_output=True,
-            text=True
-        )
-        service_active = result.stdout.strip() == 'active'
-
-        log_result = subprocess.run(
-            ['journalctl', '-u', 'noggin-processor', '-n', '50', '--no-pager'],
-            capture_output=True,
-            text=True
-        )
-        recent_logs = log_result.stdout
-
+        web_service = get_service_info('noggin-web')
+        processor_service = get_service_info('noggin-processor')
+        
+        active_tab = request.args.get('tab', 'web')
+        
         return render_template(
             'service_status.html',
-            service_active=service_active,
-            recent_logs=recent_logs
+            web_service=web_service,
+            processor_service=processor_service,
+            active_tab=active_tab
         )
-
+    
     except Exception as e:
         logger.error(f"Status check failed: {e}")
         return "Status check failed", 500
