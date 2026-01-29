@@ -1,5 +1,6 @@
 """
 Noggin Data Processor - Web Dashboard
+Noggin Object Binary Backup Yeoman
 
 Flask application providing:
 - Dashboard with processing statistics
@@ -9,6 +10,7 @@ Flask application providing:
 - Service status monitoring
 - EML export functionality
 """
+
 import os
 import sys
 import logging
@@ -21,16 +23,12 @@ from flask import Flask, render_template, request, flash, send_file, redirect, u
 from flask_httpauth import HTTPBasicAuth
 from werkzeug.security import generate_password_hash, check_password_hash
 
-# Add parent directory to path for common module access
-sys.path.insert(0, str(Path(__file__).parent.parent))
+sys.path.insert(0, str(Path(__file__).parent.parent)) # Add parent directory to path for common module access
 
-from common import ConfigLoader, DatabaseConnectionManager, HashManager
+from common import ConfigLoader, DatabaseConnectionManager, HashManager, LoggerManager
 from email_manager import EmailManager
 
-
-# ==========================================
-# 1. CONFIGURATION & LOGGING
-# ==========================================
+RESULTS_PER_PAGE = 100
 
 CONFIG_PATH = '../config/base_config.ini'
 
@@ -39,54 +37,23 @@ db_manager = DatabaseConnectionManager(config)
 hash_manager = HashManager(config, db_manager)
 email_mgr = EmailManager()
 
-LOG_DIR = Path(config.get('paths', 'base_log_path', fallback='/mnt/data/noggin/log'))
-LOG_DIR.mkdir(parents=True, exist_ok=True)
+logger: logging.Logger = logging.getLogger(__name__)
 
-log_filename = f"web_app_{datetime.now().strftime('%Y%m%d')}.log"
-log_file_path = LOG_DIR / log_filename
-
-file_handler = logging.FileHandler(log_file_path, encoding='utf-8')
-file_handler.setFormatter(logging.Formatter(
-    '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-))
-
-logger = logging.getLogger('NogginWeb')
-logger.setLevel(logging.INFO)
-logger.addHandler(file_handler)
-
-console_handler = logging.StreamHandler(sys.stdout)
-console_handler.setFormatter(logging.Formatter(
-    '%(asctime)s | %(levelname)-8s | %(message)s',
-    datefmt='%H:%M:%S'
-))
-logger.addHandler(console_handler)
-
-
-# ==========================================
-# 2. FLASK APP & AUTHENTICATION
-# ==========================================
-
+# ### FLASK APP & AUTHENTICATION
 app = Flask(__name__)
 app.secret_key = 'a1b5a507e8d554cd54f506f3b1056a71f237309a9f4565b6cc9632d4d3352faa'
-app.logger.addHandler(file_handler)
-
 auth = HTTPBasicAuth()
 
 users = {
-    "tifunction": generate_password_hash("BankFreePlay13")
+    "tifunction": generate_password_hash("BankFreePlay13"),
+    "hseq": generate_password_hash("hseq")
 }
-
 
 @auth.verify_password
 def verify_password(username: str, password: str) -> Optional[str]:
     if username in users and check_password_hash(users.get(username), password):
         return username
     return None
-
-
-# ==========================================
-# 3. HELPER FUNCTIONS
-# ==========================================
 
 def get_filter_options() -> Dict[str, List[str]]:
     """Fetch distinct values for filter dropdowns"""
@@ -105,7 +72,6 @@ def get_filter_options() -> Dict[str, List[str]]:
         logger.warning(f"Could not fetch filter options: {e}")
         return {'object_types': [], 'vehicles': []}
 
-
 def parse_filters(args) -> Dict[str, Any]:
     """Extract and sanitise filter parameters from request args"""
     return {
@@ -118,27 +84,21 @@ def parse_filters(args) -> Dict[str, Any]:
         'search_text': args.get('search', '').strip()
     }
 
-
-# ==========================================
-# 4. ROUTES
-# ==========================================
-
+### ROUTES ###
 @app.route('/')
 @auth.login_required
 def index():
     """Dashboard with processing statistics and recent activity"""
     try:
-        # Processing status counts (for stats grid iteration)
+        # stats grid iteration
         status_query = """
             SELECT processing_status, COUNT(*) as count
             FROM noggin_schema.noggin_data
             GROUP BY processing_status
         """
         status_results = db_manager.execute_query_dict(status_query)
-        # Convert to dict: {'complete': 100, 'pending': 5, ...}
         stats = {r['processing_status']: r['count'] for r in status_results}
 
-        # Object type breakdown
         type_query = """
             SELECT object_type, COUNT(*) as count
             FROM noggin_schema.noggin_data
@@ -148,7 +108,6 @@ def index():
         """
         type_stats = db_manager.execute_query_dict(type_query)
 
-        # Today's activity
         today_query = """
             SELECT
                 COUNT(*) as total_today,
@@ -159,7 +118,6 @@ def index():
         today_results = db_manager.execute_query_dict(today_query)
         today_stats = today_results[0] if today_results else {'total_today': 0, 'completed_today': 0}
 
-        # Recent activity with user/team info
         recent_query = """
             SELECT
                 tip,
@@ -193,14 +151,12 @@ def index():
         logger.error(f"Error loading dashboard: {e}", exc_info=True)
         return "Internal Server Error - Check Logs", 500
 
-
 @app.route('/inspections')
 @auth.login_required
 def inspections():
     """Inspections list with filtering and pagination"""
     page = request.args.get('page', 1, type=int)
-    per_page = 50
-    offset = (page - 1) * per_page
+    offset = (page - 1) * RESULTS_PER_PAGE
 
     filters = parse_filters(request.args)
     options = get_filter_options()
@@ -247,8 +203,7 @@ def inspections():
         count_result = db_manager.execute_query_dict(count_query, tuple(params) if params else None)
         total = count_result[0]['total'] if count_result else 0
 
-        # Paginated results
-        params_with_pagination = params + [per_page, offset]
+        params_with_pagination = params + [RESULTS_PER_PAGE, offset]
         data_query = f"""
             SELECT
                 tip,
@@ -274,7 +229,7 @@ def inspections():
             tuple(params_with_pagination) if params_with_pagination else None
         )
 
-        total_pages = (total + per_page - 1) // per_page
+        total_pages = (total + RESULTS_PER_PAGE - 1) // RESULTS_PER_PAGE
 
         return render_template(
             'inspections.html',
@@ -300,7 +255,7 @@ def inspection_detail(tip: str):
         inspection_results = db_manager.execute_query_dict(inspection_query, (tip,))
 
         if not inspection_results:
-            return "Inspection not found", 404
+            return f"NOBBY SAYS: Inspection not valid. Contact Helpdesk and ask them to check {tip} ", 404
 
         inspection = inspection_results[0]
 
@@ -357,7 +312,7 @@ def inspection_detail(tip: str):
 
     except Exception as e:
         logger.error(f"Error loading detail for {tip}: {e}", exc_info=True)
-        return "Error loading details", 500
+        return "NOBBY SAYS: Inspection detail not loaded correctly.", 500
 
 
 @app.route('/inspection/<tip>/attachment/<attachment_tip>')
@@ -399,7 +354,7 @@ def download_eml(tip: str):
         inspection_results = db_manager.execute_query_dict(inspection_query, (tip,))
 
         if not inspection_results:
-            return "Inspection not found", 404
+            return "NOBBY SAYS: Inspection not found", 404
 
         inspection = inspection_results[0]
 
@@ -428,7 +383,7 @@ def download_eml(tip: str):
 
     except Exception as e:
         logger.error(f"EML generation failed for {tip}: {e}", exc_info=True)
-        return "Error creating export", 500
+        return "NOBBY SAYS: Error creating .eml file", 500
 
 
 @app.route('/hashes')
@@ -455,7 +410,7 @@ def hashes():
 
     except Exception as e:
         logger.error(f"Error loading hashes page: {e}", exc_info=True)
-        return "Error loading hash statistics", 500
+        return "NOBBY SAYS: Error loading hash statistics", 500
 
 
 @app.route('/service-status')
@@ -492,26 +447,10 @@ def service_status():
                     key, value = line.split('=', 1)
                     details[key] = value
             
-            return {
-                'name': service_name,
-                'active': is_active,
-                'state': details.get('ActiveState', 'unknown'),
-                'substate': details.get('SubState', 'unknown'),
-                'pid': details.get('MainPID', 'N/A'),
-                'memory': details.get('MemoryCurrent', 'N/A'),
-                'logs': logs
-            }
+            return {'name': service_name, 'active': is_active, 'state': details.get('ActiveState', 'unknown'), 'substate': details.get('SubState', 'unknown'), 'pid': details.get('MainPID', 'N/A'), 'memory': details.get('MemoryCurrent', 'N/A'), 'logs': logs}
         except Exception as e:
-            logger.warning(f"Could not get status for {service_name}: {e}")
-            return {
-                'name': service_name,
-                'active': False,
-                'state': 'error',
-                'substate': str(e),
-                'pid': 'N/A',
-                'memory': 'N/A',
-                'logs': f'Error fetching logs: {e}'
-            }
+            logger.warning(f"NOBBY SAYS: Could not get status for {service_name}: {e}")
+            return {'name': service_name, 'active': False, 'state': 'error', 'substate': str(e), 'pid': 'N/A', 'memory': 'N/A', 'logs': f'NOBBY SAYS: Error fetching logs: {e}'}
     
     try:
         web_service = get_service_info('noggin-web')

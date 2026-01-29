@@ -1,3 +1,23 @@
+"""
+Configuration Loader Module
+
+Handles loading and merging of INI-based configuration files for the Noggin
+data processing pipeline. Supports a base configuration with object-type-specific
+overrides.
+
+Key features:
+- Multi-file configuration merging (base + specific)
+- Type-safe accessors (get, getint, getfloat, getboolean)
+- Case-sensitive option names for API field mappings
+- Field mapping parser for database column definitions
+- Template content extraction for report generation
+
+Usage:
+    config = ConfigLoader('config/base_config.ini', 'config/lcd_config.ini')
+    db_config = config.get_postgresql_config()
+    field_mappings = config.get_field_mappings()
+"""
+
 import configparser
 from pathlib import Path
 from typing import Any, Optional, Tuple
@@ -5,13 +25,40 @@ import logging
 
 logger: logging.Logger = logging.getLogger(__name__)
 
+
 class ConfigurationError(Exception):
+    """Raised when configuration is invalid or missing required values."""
     pass
 
+
 class ConfigLoader:
+    """
+    Loads and manages INI-based configuration with support for base and
+    object-type-specific config file merging.
+    
+    The specific config takes precedence over the base config for overlapping
+    sections and keys.
+    """
+    
     def __init__(self, base_config_path: str, specific_config_path: Optional[str] = None) -> None:
+        """
+        Initialise the configuration loader.
+        
+        Args:
+            base_config_path: Path to the base configuration file (required)
+            specific_config_path: Path to object-type-specific config (optional)
+            
+        Raises:
+            ConfigurationError: If required config files are missing or invalid
+        """
+        # Create ConfigParser instances with case-sensitive option names.
+        # This is critical for the [fields] section where API field names like
+        # 'inspectedBy' must retain their camelCase format to match the API response.
         self.base_config: configparser.ConfigParser = configparser.ConfigParser()
+        self.base_config.optionxform = str  # Preserve case for option names
+        
         self.specific_config: configparser.ConfigParser = configparser.ConfigParser()
+        self.specific_config.optionxform = str  # Preserve case for option names
         
         if not Path(base_config_path).exists():
             raise ConfigurationError(f"Base config not found: {base_config_path}")
@@ -29,6 +76,12 @@ class ConfigLoader:
         self._validate_configuration()
     
     def _validate_configuration(self) -> None:
+        """
+        Validate that all required sections and keys exist in the base config.
+        
+        Raises:
+            ConfigurationError: If required sections or keys are missing
+        """
         required_base_sections: dict[str, list[str]] = {
             'postgresql': ['host', 'port', 'database', 'user', 'password'],
             'paths': ['base_output_path', 'base_log_path', 'input_folder_path'],
@@ -47,24 +100,38 @@ class ConfigLoader:
         
         logger.info("Configuration validation passed")
     
-    def get(self, section: str, key: str, fallback: Optional[str] = None, from_specific: bool = False) -> str:
-            config: configparser.ConfigParser = self.specific_config if from_specific else self.base_config
+    def get(self, section: str, key: str, fallback: Optional[str] = None, 
+            from_specific: bool = False) -> str:
+        """
+        Get a string configuration value.
+        
+        Args:
+            section: Configuration section name
+            key: Configuration key within the section
+            fallback: Default value if key not found
+            from_specific: If True, check specific config first
             
-            if from_specific and not config.has_option(section, key):
-                config = self.base_config
+        Returns:
+            Configuration value as string
+        """
+        config: configparser.ConfigParser = self.specific_config if from_specific else self.base_config
+        
+        if from_specific and not config.has_option(section, key):
+            config = self.base_config
+        
+        try:
+            value: str = config.get(section, key, fallback=fallback)
+        except configparser.InterpolationSyntaxError:
+            # If standard parsing fails (e.g. date format like "%d %b %Y"), 
+            # retry getting the raw value without interpolation
+            logger.debug(f"Interpolation failed for [{section}] {key}, retrieving raw value")
+            value: str = config.get(section, key, fallback=fallback, raw=True)
             
-            try:
-                value: str = config.get(section, key, fallback=fallback)
-            except configparser.InterpolationSyntaxError:
-                # If standard parsing fails (e.g. date format like "%d %b %Y"), 
-                # retry getting the raw value without interpolation
-                logger.debug(f"Interpolation failed for [{section}] {key}, retrieving raw value.")
-                value: str = config.get(section, key, fallback=fallback, raw=True)
-                
-            return value
+        return value
 
-    
-    def getint(self, section: str, key: str, fallback: Optional[int] = None, from_specific: bool = False) -> int:
+    def getint(self, section: str, key: str, fallback: Optional[int] = None, 
+               from_specific: bool = False) -> int:
+        """Get an integer configuration value."""
         config: configparser.ConfigParser = self.specific_config if from_specific else self.base_config
         
         if from_specific and not config.has_option(section, key):
@@ -73,7 +140,9 @@ class ConfigLoader:
         value: int = config.getint(section, key, fallback=fallback)
         return value
     
-    def getfloat(self, section: str, key: str, fallback: Optional[float] = None, from_specific: bool = False) -> float:
+    def getfloat(self, section: str, key: str, fallback: Optional[float] = None, 
+                 from_specific: bool = False) -> float:
+        """Get a float configuration value."""
         config: configparser.ConfigParser = self.specific_config if from_specific else self.base_config
         
         if from_specific and not config.has_option(section, key):
@@ -82,7 +151,9 @@ class ConfigLoader:
         value: float = config.getfloat(section, key, fallback=fallback)
         return value
     
-    def getboolean(self, section: str, key: str, fallback: Optional[bool] = None, from_specific: bool = False) -> bool:
+    def getboolean(self, section: str, key: str, fallback: Optional[bool] = None, 
+                   from_specific: bool = False) -> bool:
+        """Get a boolean configuration value."""
         config: configparser.ConfigParser = self.specific_config if from_specific else self.base_config
         
         if from_specific and not config.has_option(section, key):
@@ -92,6 +163,16 @@ class ConfigLoader:
         return value
     
     def get_section(self, section: str, from_specific: bool = False) -> dict[str, str]:
+        """
+        Get all key-value pairs from a configuration section.
+        
+        Args:
+            section: Section name to retrieve
+            from_specific: If True, use specific config
+            
+        Returns:
+            Dictionary of section contents (preserves key case)
+        """
         config: configparser.ConfigParser = self.specific_config if from_specific else self.base_config
         
         if not config.has_section(section):
@@ -100,6 +181,7 @@ class ConfigLoader:
         return dict(config.items(section))
     
     def get_postgresql_config(self) -> dict[str, Any]:
+        """Get PostgreSQL connection configuration."""
         return {
             'host': self.get('postgresql', 'host'),
             'port': self.getint('postgresql', 'port'),
@@ -112,14 +194,23 @@ class ConfigLoader:
         }
     
     def get_api_headers(self) -> dict[str, str]:
+        """Get HTTP headers for API requests."""
         return {
             'en-namespace': self.get('api', 'namespace'),
             'authorization': f"Bearer {self.get('api', 'bearer_token')}"
         }
     
     def get_object_type_config(self) -> dict[str, str]:
+        """
+        Get object type configuration from the specific config file.
+        
+        The id_field format is: "apiFieldName:dbColumnName:fieldType"
+        e.g., "lcdInspectionId:noggin_reference:string"
+        
+        Returns:
+            Dictionary containing object type metadata and field mappings
+        """
         # id_field format: "apiFieldName:dbColumnName:fieldType"
-        # e.g., "lcdInspectionId:noggin_reference:string"
         id_field_raw = self.get('fields', 'id_field', from_specific=True)
         
         # Parse the id_field to extract components
@@ -132,7 +223,6 @@ class ConfigLoader:
             'object_type': self.get('api', 'object_type', from_specific=True),
             'abbreviation': self.get('object_type', 'abbreviation', from_specific=True),
             'full_name': self.get('object_type', 'full_name', from_specific=True),
-            # Added inspection_type here
             'inspection_type': self.get('object_type', 'inspection_type', from_specific=True, fallback='Inspection'),
             'id_field': id_field_raw,
             'api_id_field': api_id_field,
@@ -144,7 +234,20 @@ class ConfigLoader:
         Parse [fields] section and return field mappings.
         
         Config format: api_field = db_column:field_type[:hash_type]
-        Returns: {api_field: (db_column, field_type, hash_type or None)}
+        
+        Example config entries:
+            inspectedBy = inspected_by:string
+            vehicle = vehicle_hash:hash:vehicle
+            date = inspection_date:datetime
+        
+        Returns:
+            Dictionary mapping API field names (preserving camelCase) to tuples of:
+            (db_column, field_type, hash_type or None)
+            
+        Note:
+            Case sensitivity is preserved for API field names. This is essential
+            because the Noggin API returns camelCase field names (e.g., 'inspectedBy')
+            and the mapping must match exactly.
         """
         fields_section = self.get_section('fields', from_specific=True)
         mappings: dict[str, tuple[str, str, Optional[str]]] = {}
@@ -167,19 +270,27 @@ class ConfigLoader:
             
             mappings[api_field] = (db_column, field_type, hash_type)
         
+        logger.debug(f"Loaded {len(mappings)} field mappings")
         return mappings
     
     def get_output_patterns(self) -> dict[str, str]:
-        """Get output patterns from [output] section"""
+        """Get output patterns from [output] section."""
         return self.get_section('output', from_specific=True)
     
     def get_template_content(self) -> Optional[str]:
-        """Get report template content from [template] section"""
+        """
+        Get report template content from [template] section.
+        
+        Returns:
+            Template string if configured, None otherwise
+        """
         if self.specific_config.has_option('template', 'content'):
             return self.specific_config.get('template', 'content')
         return None
 
+
 if __name__ == "__main__":
+    # Test the configuration loader
     try:
         config: ConfigLoader = ConfigLoader(
             'config/base_config.ini',
@@ -187,8 +298,13 @@ if __name__ == "__main__":
         )
         
         print("PostgreSQL Config:", config.get_postgresql_config())
-        print("API Headers:", config.get_api_headers())
-        print("Object Type Config:", config.get_object_type_config())
+        print("\nAPI Headers:", config.get_api_headers())
+        print("\nObject Type Config:", config.get_object_type_config())
+        
+        print("\nField Mappings (showing case preservation):")
+        for api_field, (db_col, field_type, hash_type) in config.get_field_mappings().items():
+            hash_info = f" -> {hash_type}" if hash_type else ""
+            print(f"  {api_field} -> {db_col} ({field_type}{hash_info})")
         
     except ConfigurationError as e:
         print(f"Configuration error: {e}")

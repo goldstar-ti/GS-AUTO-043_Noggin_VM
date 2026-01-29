@@ -623,9 +623,18 @@ def resolve_unknown_hashes(db_manager: 'DatabaseConnectionManager',
     from processors.report_generator import create_report_generator
     
     logger.info("Starting unknown hash resolution")
-    
+
+    CONFIG_PATH = '../config/base_config.ini'
+    config = ConfigLoader(CONFIG_PATH)    
+
+    LOG_DIR = Path(config.get('paths', 'base_log_path', fallback='/mnt/data/noggin/log'))
+    LOG_DIR.mkdir(parents=True, exist_ok=True)
+
+    log_filename = f"web_app_{datetime.now().strftime('%Y%m%d')}.log"
+    log_file_path = LOG_DIR / log_filename
+
     # Setup log files
-    log_path = paths.get('log', Path('/mnt/data/noggin/etl/log'))
+    log_path = paths.get('log', Path('/mnt/data/noggin/log'))
     log_path.mkdir(parents=True, exist_ok=True)
     
     date_stamp = datetime.now().strftime('%Y%m%d')

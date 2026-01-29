@@ -1,0 +1,78 @@
+[Jan 23 18:55]  .
+├── [Jan 10 13:40]  archive_monthly_sftp.py
+├── [Jan 11 17:50]  common
+│   ├── [Jan 14 12:03]  config.py
+│   ├── [Jan 18 17:02]  csv_importer.py
+│   ├── [Jan 11 16:51]  database.py
+│   ├── [Jan 22 19:16]  hash_manager.py
+│   ├── [Jan 14 09:39]  __init__.py
+│   ├── [Jan 12 16:43]  logger.py
+│   ├── [Jan 14 09:47]  object_types.py
+│   ├── [Jan 23 19:10]  __pycache__
+│   └── [Jan 11 16:51]  rate_limiter.py
+├── [Jan 11 18:01]  config
+│   ├── [Jan 14 11:32]  base_config.ini
+│   ├── [Jan 14 13:05]  coupling_compliance_check_config.ini
+│   ├── [Jan 14 13:05]  forklift_prestart_inspection_config.ini
+│   ├── [Jan 14 13:05]  load_compliance_check_driver_loader_config.ini
+│   ├── [Jan 14 13:05]  load_compliance_check_supervisor_manager_config.ini
+│   ├── [Jan 12 15:24]  sftp_config.ini
+│   ├── [Jan 14 13:05]  site_observations_config.ini
+│   └── [Jan 14 13:05]  trailer_audits_config.ini
+├── [Jan 28 22:41]  docs
+│   ├── [Oct 22 19:01]  _create_service_todo.md
+│   ├── [Jan 14 22:56]  noggin_db_bvackupu_columns_202601142256.json
+│   ├── [Jan 14 22:58]  noggin_db_bvackupu_columns_202601142258.md
+│   ├── [Jan 13 11:38]  noggin_sample_payloads_20260113_113816.json
+│   ├── [Jan 13 13:41]  noggin_schema.sql
+│   ├── [Jan 10 13:07]  system_context.txt
+│   ├── [Jan 18 18:36]  TODO.md
+│   ├── [Jan 28 22:41]  tree_structure.txt
+│   └── [Jan 15 00:09]  web_interface_environment.txt
+├── [Jan 23 11:29]  hash_lookup_sync.py
+├── [Jan 18 17:01]  import_csv_tips.py
+├── [Oct 22 18:44]  manage_continuous_service.sh
+├── [Jan 11 16:51]  manage_hashes.py
+├── [Jan 21 19:48]  manage_web_service.sh
+├── [Oct 23 11:04]  node_modules
+│   └── [Oct 23 11:04]  npx
+├── [Jan 11 16:51]  noggin_continuous_processor_modular.py
+├── [Jan 12 14:45]  noggin_continuous_processor.py
+├── [Jan 14 08:07]  noggin_processor_unified.py
+├── [Oct 23 11:04]  package.json
+├── [Oct 23 11:04]  package-lock.json
+├── [Jan 13 11:05]  processors
+│   ├── [Jan 14 12:52]  base_processor.py
+│   ├── [Jan 14 11:29]  field_processor.py
+│   ├── [Jan 10 16:48]  __init__.py
+│   ├── [Jan 14 12:05]  object_processor.py
+│   ├── [Jan 26 22:29]  __pycache__
+│   └── [Jan 14 12:04]  report_generator.py
+├── [Jan 21 20:05]  __pycache__
+│   └── [Jan 21 20:05]  sftp_download_tips.cpython-312.pyc
+├── [Jan 23 18:06]  requirements.txt
+├── [Jan 22 12:09]  scratch
+│   ├── [Jan 13 11:37]  fetch_noggin_samples.py
+│   └── [Jan 22 12:09]  hash_resolution_implementation.md
+├── [Jan 11 19:10]  service_dashboard.py
+├── [Jan 14 09:39]  sftp_download_tips.py
+├── [Jan 21 19:47]  sys
+│   ├── [Oct 23 09:30]  get_server_config.sh
+│   ├── [Jan 11 15:56]  log_maintenance.py
+│   ├── [Jan 21 19:30]  noggin-web.service
+│   └── [Jan 10 13:07]  system_audit.sh
+├── [Jan 21 20:01]  test
+│   ├── [Jan 11 16:52]  test_circuit_breaker.py
+│   ├── [Jan 11 16:52]  test_common.py
+│   ├── [Jan 13 17:18]  test_connection.py
+│   ├── [Jan 11 17:00]  test_database.py
+│   ├── [Jan 11 16:52]  test_hash_manager.py
+│   ├── [Jan 14 09:40]  test_sftp_downloader.py
+│   └── [Oct 22 19:00]  test_systemd_service.sh
+└── [Jan 23 17:17]  web
+    ├── [Jan 23 17:56]  app.py
+    ├── [Jan 18 19:10]  email_manager.py
+    ├── [Jan 23 19:10]  __pycache__
+    └── [Oct 26 16:06]  templates
+
+16 directories, 60 files
