@@ -1,0 +1,686 @@
+@charset "UTF-8";
+/**
+ * Noggin Data Processor - Consolidated Stylesheet
+ * Uses Bootstrap 5 with GoldStar brand colour overrides
+ */
+
+/* ==========================================================================
+   1. CSS Custom Properties (Brand Colours)
+   ========================================================================== */
+
+:root {
+    --gs-gold: #f2c438;
+    --gs-gold-dark: #d4a928;
+    --gs-gold-light: #fff3cd;
+    --gs-slate: #2c3e50;
+    --gs-slate-light: #5a6c7d;
+    --gs-slate-muted: #7f8c8d;
+    --gs-bg: #f1efe7;
+    --gs-bg-alt: #f8f9fa;
+    --gs-text: #212529;
+    --gs-border: #dee2e6;
+    --gs-border-light: #eee;
+}
+
+/* ==========================================================================
+   2. Bootstrap Overrides
+   ========================================================================== */
+
+.btn-primary {
+    background-color: var(--gs-gold);
+    border-color: var(--gs-gold);
+    color: var(--gs-slate);
+    font-weight: 600;
+}
+
+.btn-primary:hover,
+.btn-primary:focus {
+    background-color: var(--gs-gold-dark);
+    border-color: var(--gs-gold-dark);
+    color: var(--gs-slate);
+}
+
+.btn-primary:active {
+    background-color: var(--gs-gold-dark);
+    border-color: var(--gs-gold-dark);
+    color: var(--gs-slate);
+}
+
+.btn-secondary {
+    background-color: #e0e0e0;
+    border-color: #e0e0e0;
+    color: #333;
+}
+
+.btn-secondary:hover {
+    background-color: #d0d0d0;
+    border-color: #d0d0d0;
+    color: #333;
+}
+
+/* ==========================================================================
+   3. Base Layout
+   ========================================================================== */
+
+body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background-color: var(--gs-bg);
+    color: var(--gs-text);
+}
+
+/* ==========================================================================
+   4. Header
+   ========================================================================== */
+
+.app-header {
+    background-color: var(--gs-slate);
+    color: white;
+    padding: 1rem 2rem;
+    border-bottom: 5px solid var(--gs-gold);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.app-header h1 {
+    font-size: 1.5rem;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+    margin: 0;
+}
+
+/* ==========================================================================
+   5. Navigation
+   ========================================================================== */
+
+.app-nav {
+    background-color: var(--gs-slate-light);
+    padding: 0 2rem;
+}
+
+.app-nav .nav-link {
+    color: #ecf0f1;
+    padding: 1rem 1.5rem;
+    font-weight: 500;
+    border-bottom: 3px solid transparent;
+    border-radius: 0;
+    transition: all 0.2s;
+}
+
+.app-nav .nav-link:hover {
+    background-color: rgba(255, 255, 255, 0.05);
+    color: white;
+}
+
+.app-nav .nav-link.active {
+    color: var(--gs-gold);
+    border-bottom-color: var(--gs-gold);
+    background-color: rgba(0, 0, 0, 0.1);
+}
+
+/* ==========================================================================
+   6. Cards
+   ========================================================================== */
+
+.card {
+    border: none;
+    border-radius: 8px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    margin-bottom: 1.5rem;
+}
+
+.card-header {
+    background-color: var(--gs-bg-alt);
+    border-bottom: 1px solid var(--gs-border-light);
+    font-weight: 600;
+    color: var(--gs-slate);
+}
+
+.card-accent-top {
+    border-top: 3px solid var(--gs-slate);
+}
+
+/* ==========================================================================
+   7. Stats Grid
+   ========================================================================== */
+
+.stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+}
+
+.stat-card {
+    background: white;
+    padding: 1.5rem;
+    border-radius: 8px;
+    text-align: center;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    border-bottom: 4px solid #ddd;
+}
+
+.stat-card .stat-number {
+    font-size: 2rem;
+    font-weight: bold;
+    color: var(--gs-slate);
+    cursor: default;
+}
+
+.stat-card .stat-label {
+    color: var(--gs-slate-muted);
+    font-size: 0.85rem;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-bottom: 0.5rem;
+}
+
+.stat-card.stat-success { border-color: #27ae60; }
+.stat-card.stat-info { border-color: #3498db; }
+.stat-card.stat-danger { border-color: #e74c3c; }
+.stat-card.stat-warning { border-color: var(--gs-gold); }
+.stat-card.stat-secondary { border-color: #6c757d; }
+
+/* ==========================================================================
+   8. Tables
+   ========================================================================== */
+
+.table > thead {
+    background-color: var(--gs-slate-light);
+    color: white;
+}
+
+.table > thead th {
+    font-weight: 500;
+    border: none;
+}
+
+.table > tbody > tr:hover {
+    background-color: #fdfbf0;
+}
+
+.table td {
+    vertical-align: middle;
+}
+
+/* ==========================================================================
+   9. Badges (Custom Variants)
+   ========================================================================== */
+
+.badge-status-complete { background-color: #d4edda; color: #155724; }
+.badge-status-pending { background-color: #d1ecf1; color: #0c5460; }
+.badge-status-failed { background-color: #f8d7da; color: #721c24; }
+.badge-status-partial { background-color: #fff3cd; color: #856404; }
+.badge-status-warning { background-color: #fff3cd; color: #856404; }
+.badge-status-api_error { background-color: #f8d7da; color: #721c24; }
+.badge-status-csv_imported { background-color: #e2e3e5; color: #383d41; }
+.badge-status-interrupted { background-color: #fff3cd; color: #856404; }
+.badge-status-secondary { background-color: #e2e3e5; color: #383d41; }
+
+/* ==========================================================================
+   10. Flash Messages
+   ========================================================================== */
+
+.flash-error {
+    background-color: #f8d7da;
+    color: #721c24;
+    border: 1px solid #f5c6cb;
+}
+
+.flash-success {
+    background-color: #d4edda;
+    color: #155724;
+    border: 1px solid #c3e6cb;
+}
+
+/* ==========================================================================
+   11. Code Blocks
+   ========================================================================== */
+
+code {
+    background-color: #f1f1f1;
+    padding: 2px 6px;
+    border-radius: 3px;
+    font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+    font-size: 0.9em;
+}
+
+/* ==========================================================================
+   12. Service Status Page - Tabs
+   ========================================================================== */
+
+.service-tabs {
+    border-bottom: 2px solid var(--gs-slate-light);
+    margin-bottom: 0;
+}
+
+.service-tabs .nav-link {
+    padding: 1rem 2rem;
+    background-color: #e9ecef;
+    border: none;
+    font-weight: 600;
+    color: var(--gs-slate);
+    border-radius: 8px 8px 0 0;
+    margin-right: 4px;
+    transition: all 0.2s;
+}
+
+.service-tabs .nav-link:hover {
+    background-color: #dee2e6;
+}
+
+.service-tabs .nav-link.active {
+    background-color: white;
+    color: var(--gs-slate);
+    border-bottom: 2px solid white;
+    margin-bottom: -2px;
+}
+
+.service-tab-content {
+    background-color: white;
+    padding: 1.5rem;
+    border-radius: 0 8px 8px 8px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+/* Status Indicators */
+.status-indicator {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    display: inline-block;
+}
+
+.status-indicator.running {
+    background-color: #27ae60;
+    box-shadow: 0 0 8px rgba(39, 174, 96, 0.5);
+}
+
+.status-indicator.stopped {
+    background-color: #e74c3c;
+}
+
+/* Log Container */
+.log-container {
+    background-color: #1e2a38;
+    color: #ecf0f1;
+    padding: 1rem;
+    border-radius: 6px;
+    font-family: 'Consolas', 'Monaco', monospace;
+    font-size: 0.82rem;
+    line-height: 1.5;
+    max-height: 500px;
+    overflow-y: auto;
+    white-space: pre-wrap;
+    word-break: break-word;
+}
+
+.log-container::-webkit-scrollbar {
+    width: 8px;
+}
+
+.log-container::-webkit-scrollbar-track {
+    background-color: #2c3e50;
+}
+
+.log-container::-webkit-scrollbar-thumb {
+    background-color: #5a6c7d;
+    border-radius: 4px;
+}
+
+/* Commands Card */
+.commands-card {
+    margin-top: 1.5rem;
+    padding: 1rem 1.5rem;
+    background-color: var(--gs-bg-alt);
+    border-radius: 6px;
+    border-left: 4px solid var(--gs-gold);
+}
+
+.commands-card h5 {
+    margin: 0 0 0.75rem 0;
+    font-size: 0.95rem;
+    color: var(--gs-slate);
+}
+
+.commands-card code {
+    display: block;
+    margin: 0.4rem 0;
+    padding: 0.3rem 0.6rem;
+    background-color: white;
+    border-radius: 4px;
+    font-size: 0.85rem;
+}
+
+/* ==========================================================================
+   13. Inspections Page - Filter Panel
+   ========================================================================== */
+
+.filter-panel {
+    background-color: white;
+    padding: 1.5rem;
+    border-radius: 8px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    margin-bottom: 2rem;
+    border-top: 3px solid var(--gs-slate);
+}
+
+.filter-panel h3 {
+    margin-bottom: 1.5rem;
+    color: var(--gs-slate);
+}
+
+.filter-logic-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1.5rem;
+    margin-bottom: 1.5rem;
+    align-items: stretch;
+}
+
+.logic-group {
+    display: flex;
+    gap: 1rem;
+    flex: 1;
+    min-width: 250px;
+}
+
+.input-wrapper {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+}
+
+.input-wrapper label {
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: var(--gs-slate);
+    margin-bottom: 0.4rem;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.input-wrapper input,
+.input-wrapper select {
+    padding: 0.6rem;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    font-size: 0.95rem;
+    width: 100%;
+    height: 40px;
+}
+
+.input-wrapper input:focus,
+.input-wrapper select:focus {
+    outline: none;
+    border-color: var(--gs-gold);
+    box-shadow: 0 0 0 2px rgba(242, 196, 56, 0.2);
+}
+
+.date-frame {
+    border: 1px solid #e0e0e0;
+    border-radius: 6px;
+    padding: 0.5rem 1rem 1rem 1rem;
+    display: flex;
+    gap: 1rem;
+    flex: 1.2;
+    min-width: 300px;
+}
+
+.date-frame legend {
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: var(--gs-slate);
+    padding: 0 0.5rem;
+}
+
+.search-row {
+    margin-top: 1rem;
+    border-top: 1px dashed var(--gs-border-light);
+    padding-top: 1rem;
+}
+
+.filter-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 0.8rem;
+    margin-top: 1.5rem;
+}
+
+.filter-actions .btn {
+    height: 40px;
+    padding: 0 1.5rem;
+    font-size: 0.95rem;
+}
+
+/* ==========================================================================
+   14. Inspection Detail Page
+   ========================================================================== */
+
+.header-banner {
+    background-color: white;
+    border-bottom: 4px solid var(--gs-gold);
+    padding: 25px 0;
+    margin-bottom: 30px;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+}
+
+.header-title {
+    font-weight: 700;
+    color: var(--gs-slate);
+}
+
+.header-badge {
+    font-size: 1rem;
+    vertical-align: middle;
+    margin-right: 10px;
+    background-color: var(--gs-slate);
+}
+
+.details-card {
+    background-color: white;
+    border: none;
+    border-radius: 12px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+    padding: 0;
+    overflow: hidden;
+    margin-bottom: 20px;
+}
+
+.card-header-custom {
+    background-color: var(--gs-bg-alt);
+    padding: 15px 25px;
+    border-bottom: 1px solid var(--gs-border-light);
+    font-weight: 600;
+    color: var(--gs-slate);
+    font-size: 1.1rem;
+}
+
+.card-header-custom.text-danger {
+    color: #dc3545;
+}
+
+.card-body-custom {
+    padding: 10px 25px 25px 25px;
+}
+
+.field-row {
+    padding: 12px 0;
+    border-bottom: 1px solid #f1f1f1;
+    display: flex;
+    align-items: flex-start;
+}
+
+.field-row:last-child {
+    border-bottom: none;
+}
+
+.field-label {
+    font-weight: 600;
+    color: #6c757d;
+    width: 40%;
+    padding-right: 15px;
+    font-size: 0.95rem;
+}
+
+.field-value {
+    color: var(--gs-text);
+    width: 60%;
+    word-break: break-word;
+}
+
+/* Attachment List */
+.attachment-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+.attachment-item {
+    background-color: white;
+    border: 1px solid #e9ecef;
+    border-radius: 8px;
+    padding: 12px;
+    margin-bottom: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    transition: all 0.2s;
+}
+
+.attachment-item:hover {
+    border-color: var(--gs-gold);
+    box-shadow: 0 2px 8px rgba(242, 196, 56, 0.15);
+}
+
+.attachment-icon {
+    background-color: var(--gs-bg-alt);
+    border-radius: 4px;
+    padding: 0.5rem;
+    color: var(--gs-slate-muted);
+}
+
+/* Modal Content */
+.modal-content-wrapper {
+    background-color: #e9ecef;
+    min-height: 300px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+#modalImage {
+    max-width: 100%;
+    max-height: 80vh;
+    border-radius: 4px;
+}
+
+.modal-content-wrapper iframe {
+    width: 100%;
+    height: 80vh;
+    border: none;
+}
+
+.back-link {
+    color: var(--gs-slate-muted);
+    text-decoration: none;
+    font-size: 0.9rem;
+}
+
+.back-link:hover {
+    color: var(--gs-gold);
+}
+
+/* ==========================================================================
+   15. Hashes Page
+   ========================================================================== */
+
+.hash-coverage-complete {
+    background-color: #d4edda;
+    color: #155724;
+}
+
+.hash-coverage-warning {
+    background-color: #fff3cd;
+    color: #856404;
+}
+
+.hash-coverage-danger {
+    background-color: #f8d7da;
+    color: #721c24;
+}
+
+/* ==========================================================================
+   16. Dashboard Page - Object Type Pills
+   ========================================================================== */
+
+.object-type-pill {
+    background-color: var(--gs-bg-alt);
+    padding: 10px 15px;
+    border-radius: 6px;
+    border: 1px solid #ddd;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.object-type-pill .type-name {
+    font-weight: bold;
+    color: #555;
+}
+
+.object-type-pill .type-count {
+    background-color: var(--gs-gold);
+    color: var(--gs-slate);
+    padding: 2px 8px;
+    border-radius: 10px;
+    font-size: 0.9em;
+}
+
+/* ==========================================================================
+   17. Pagination
+   ========================================================================== */
+
+.pagination .page-link {
+    color: var(--gs-slate);
+    border-color: #ddd;
+}
+
+.pagination .page-item.active .page-link {
+    background-color: var(--gs-gold);
+    border-color: var(--gs-gold);
+    color: var(--gs-slate);
+    font-weight: bold;
+}
+
+.pagination .page-link:hover {
+    background-color: var(--gs-gold-light);
+    border-color: var(--gs-gold);
+    color: var(--gs-slate);
+}
+
+/* ==========================================================================
+   18. Utility Classes
+   ========================================================================== */
+
+.text-muted-custom {
+    color: var(--gs-slate-muted);
+}
+
+.cursor-default {
+    cursor: default;
+}
+
+.cursor-help {
+    cursor: help;
+}
+
+.border-gs-gold {
+    border-color: var(--gs-gold);
+}
+
+.bg-gs-gold {
+    background-color: var(--gs-gold);
+}
+
+.text-gs-slate {
+    color: var(--gs-slate);
+}

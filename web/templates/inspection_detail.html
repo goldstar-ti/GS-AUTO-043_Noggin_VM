@@ -1,313 +1,190 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{{ type_label }} - {{ inspection_id }}</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
-    
-    <style>
-        body {
-            background-color: #f0f2f5;
-            font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
-        }
-        .header-banner {
-            background: #ffffff;
-            border-bottom: 4px solid #0d6efd;
-            padding: 25px 0;
-            margin-bottom: 30px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.05);
-        }
-        .header-title {
-            font-weight: 700;
-            color: #2c3e50;
-        }
-        .header-badge {
-            font-size: 1rem;
-            vertical-align: middle;
-            margin-right: 10px;
-        }
-        .details-card {
-            background: white;
-            border: none;
-            border-radius: 12px;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.05);
-            padding: 0;
-            overflow: hidden;
-            margin-bottom: 20px;
-        }
-        .card-header-custom {
-            background-color: #f8f9fa;
-            padding: 15px 25px;
-            border-bottom: 1px solid #eee;
-            font-weight: 600;
-            color: #0d6efd;
-            font-size: 1.1rem;
-        }
-        .card-body-custom {
-            padding: 10px 25px 25px 25px;
-        }
-        .field-row {
-            padding: 12px 0;
-            border-bottom: 1px solid #f1f1f1;
-            display: flex;
-            align-items: flex-start;
-        }
-        .field-row:last-child {
-            border-bottom: none;
-        }
-        .field-label {
-            font-weight: 600;
-            color: #6c757d;
-            width: 40%;
-            padding-right: 15px;
-            font-size: 0.95rem;
-        }
-        .field-value {
-            color: #212529;
-            width: 60%;
-            word-break: break-word;
-        }
-        .attachment-list {
-            list-style: none;
-            padding: 0;
-        }
-        .attachment-item {
-            background: #fff;
-            border: 1px solid #e9ecef;
-            border-radius: 8px;
-            padding: 12px;
-            margin-bottom: 10px;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            transition: all 0.2s;
-        }
-        .attachment-item:hover {
-            border-color: #0d6efd;
-            box-shadow: 0 2px 8px rgba(13, 110, 253, 0.1);
-        }
-        .modal-content-wrapper {
-            background: #e9ecef;
-            min-height: 300px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-        #modalImage {
-            max-width: 100%;
-            max-height: 80vh;
-            border-radius: 4px;
-        }
-        iframe {
-            width: 100%;
-            height: 80vh;
-            border: none;
-        }
-        .back-link {
-            color: #6c757d;
-            text-decoration: none;
-            font-size: 0.9rem;
-        }
-        .back-link:hover {
-            color: #0d6efd;
-        }
-    </style>
-</head>
-<body>
+{% extends "base.html" %}
 
-    <div class="header-banner">
-        <div class="container">
-            <div class="mb-2">
-                <a href="{{ url_for('inspections') }}" class="back-link">
-                    <i class="fas fa-arrow-left me-1"></i> Back to Inspections
-                </a>
-            </div>
-            <div class="d-flex justify-content-between align-items-center">
-                <div>
-                    <h5 class="text-muted text-uppercase mb-1" style="font-size: 0.85rem; letter-spacing: 1px;">Inspection Record</h5>
-                    <h2 class="header-title mb-0">
-                        <span class="badge bg-primary header-badge rounded-pill">{{ type_label }}</span>
-                        {{ inspection_id }}
-                    </h2>
-                </div>
-                <div>
-                    <a href="{{ url_for('download_eml', tip=inspection.tip) }}" class="btn btn-dark btn-lg shadow-sm">
-                        <i class="fas fa-envelope-open-text me-2"></i> Download .EML
-                    </a>
-                </div>
-            </div>
+{% block title %}{{ type_label }} - {{ inspection_id }}{% endblock %}
+
+{% block content %}
+<div class="header-banner">
+    <div class="mb-2">
+        <a href="{{ url_for('inspections') }}" class="back-link">
+            <i class="fas fa-arrow-left me-1"></i> Back to Inspections
+        </a>
+    </div>
+    <div class="d-flex justify-content-between align-items-center">
+        <div>
+            <h5 class="text-muted text-uppercase mb-1" style="font-size: 0.85rem; letter-spacing: 1px;">Inspection Record</h5>
+            <h2 class="header-title mb-0">
+                <span class="badge header-badge rounded-pill">{{ type_label }}</span>
+                {{ inspection_id }}
+            </h2>
+        </div>
+        <div>
+            <a href="{{ url_for('download_eml', tip=inspection.tip) }}" class="btn btn-dark btn-lg shadow-sm">
+                <i class="fas fa-envelope-open-text me-2"></i> Download .EML
+            </a>
         </div>
     </div>
+</div>
 
-    <div class="container">
-        <div class="row">
-            <div class="col-lg-8">
-                <div class="details-card">
-                    <div class="card-header-custom">
-                        <i class="fas fa-list-alt me-2"></i> Record Details
+<div class="row">
+    <div class="col-lg-8">
+        <div class="details-card">
+            <div class="card-header-custom">
+                <i class="fas fa-list-alt me-2"></i> Record Details
+            </div>
+            <div class="card-body-custom">
+                {% if fields %}
+                    {% for field in fields %}
+                    <div class="field-row">
+                        <div class="field-label">{{ field.label }}</div>
+                        <div class="field-value">{{ field.value }}</div>
                     </div>
-                    <div class="card-body-custom">
-                        {% if fields %}
-                            {% for field in fields %}
-                            <div class="field-row">
-                                <div class="field-label">{{ field.label }}</div>
-                                <div class="field-value">{{ field.value }}</div>
-                            </div>
-                            {% endfor %}
-                        {% else %}
-                            <div class="alert alert-warning m-3">
-                                No display fields configured for object type: <strong>{{ object_type }}</strong>
-                            </div>
-                        {% endif %}
+                    {% endfor %}
+                {% else %}
+                    <div class="alert alert-warning m-3">
+                        No display fields configured for object type: <strong>{{ object_type }}</strong>
                     </div>
-                </div>
-
-                {% if errors %}
-                <div class="details-card">
-                    <div class="card-header-custom" style="color: #dc3545;">
-                        <i class="fas fa-exclamation-triangle me-2"></i> Processing Errors
-                    </div>
-                    <div class="card-body-custom">
-                        {% for error in errors %}
-                        <div class="field-row">
-                            <div class="field-label">{{ error.error_type }}<br><small class="text-muted">{{ error.created_at.strftime('%d-%m-%Y %H:%M') if error.created_at else '' }}</small></div>
-                            <div class="field-value text-danger">{{ error.error_message }}</div>
-                        </div>
-                        {% endfor %}
-                    </div>
-                </div>
                 {% endif %}
             </div>
+        </div>
 
-            <div class="col-lg-4">
-                <div class="details-card">
-                    <div class="card-header-custom">
-                        <i class="fas fa-paperclip me-2"></i> Attachments
+        {% if errors %}
+        <div class="details-card">
+            <div class="card-header-custom text-danger">
+                <i class="fas fa-exclamation-triangle me-2"></i> Processing Errors
+            </div>
+            <div class="card-body-custom">
+                {% for error in errors %}
+                <div class="field-row">
+                    <div class="field-label">
+                        {{ error.error_type }}<br>
+                        <small class="text-muted">{{ error.created_at.strftime('%d-%m-%Y %H:%M') if error.created_at else '' }}</small>
                     </div>
-                    <div class="card-body-custom pt-3">
-                        {% if attachments %}
-                            <ul class="attachment-list">
-                            {% for att in attachments %}
-                                <li class="attachment-item">
-                                    <div class="d-flex align-items-center text-truncate me-2">
-                                        <div class="bg-light rounded p-2 me-3 text-secondary">
-                                            <i class="far fa-file-alt fa-lg"></i>
-                                        </div>
-                                        <div class="text-truncate">
-                                            <div class="fw-bold text-dark" style="font-size: 0.9rem;">{{ att.filename }}</div>
-                                            <div class="text-muted small">
-                                                {% if att.file_size_bytes %}
-                                                    {{ (att.file_size_bytes / 1024)|round(1) }} KB
-                                                {% endif %}
-                                                {% if att.attachment_status != 'complete' %}
-                                                    <span class="badge bg-warning text-dark">{{ att.attachment_status }}</span>
-                                                {% endif %}
-                                            </div>
-                                        </div>
+                    <div class="field-value text-danger">{{ error.error_message }}</div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+    </div>
+
+    <div class="col-lg-4">
+        <div class="details-card">
+            <div class="card-header-custom">
+                <i class="fas fa-paperclip me-2"></i> Attachments
+            </div>
+            <div class="card-body-custom pt-3">
+                {% if attachments %}
+                    <ul class="attachment-list">
+                    {% for att in attachments %}
+                        <li class="attachment-item">
+                            <div class="d-flex align-items-center text-truncate me-2">
+                                <div class="attachment-icon me-3">
+                                    <i class="far fa-file-alt fa-lg"></i>
+                                </div>
+                                <div class="text-truncate">
+                                    <div class="fw-bold text-dark" style="font-size: 0.9rem;">{{ att.filename }}</div>
+                                    <div class="text-muted small">
+                                        {% if att.file_size_bytes %}
+                                            {{ (att.file_size_bytes / 1024)|round(1) }} KB
+                                        {% endif %}
+                                        {% if att.attachment_status != 'complete' %}
+                                            <span class="badge bg-warning text-dark">{{ att.attachment_status }}</span>
+                                        {% endif %}
                                     </div>
-                                    {% if att.attachment_status == 'complete' %}
-                                    <button class="btn btn-outline-primary btn-sm" 
-                                            onclick="openAttachment('{{ att.attachment_tip }}', '{{ att.filename }}')">
-                                        View
-                                    </button>
-                                    {% else %}
-                                    <span class="text-muted small">Pending</span>
-                                    {% endif %}
-                                </li>
-                            {% endfor %}
-                            </ul>
-                        {% else %}
-                            <p class="text-muted text-center py-4">No attachments found for this record.</p>
-                        {% endif %}
-                    </div>
-                </div>
-
-                <div class="details-card">
-                    <div class="card-header-custom">
-                        <i class="fas fa-info-circle me-2"></i> Processing Status
-                    </div>
-                    <div class="card-body-custom pt-3">
-                        <div class="field-row">
-                            <div class="field-label">Status</div>
-                            <div class="field-value">
-                                {% set status_class = {
-                                    'complete': 'success',
-                                    'pending': 'info',
-                                    'failed': 'danger',
-                                    'partial': 'warning',
-                                    'csv_imported': 'secondary'
-                                }.get(inspection.processing_status, 'secondary') %}
-                                <span class="badge bg-{{ status_class }}">{{ inspection.processing_status }}</span>
+                                </div>
                             </div>
-                        </div>
-                        <div class="field-row">
-                            <div class="field-label">Retry Count</div>
-                            <div class="field-value">{{ inspection.retry_count or 0 }}</div>
-                        </div>
-                        <div class="field-row">
-                            <div class="field-label">Last Updated</div>
-                            <div class="field-value">{{ inspection.updated_at.strftime('%d-%m-%Y %H:%M') if inspection.updated_at else 'N/A' }}</div>
-                        </div>
+                            {% if att.attachment_status == 'complete' %}
+                            <button class="btn btn-outline-primary btn-sm" 
+                                    onclick="openAttachment('{{ att.attachment_tip }}', '{{ att.filename }}')">
+                                View
+                            </button>
+                            {% else %}
+                            <span class="text-muted small">Pending</span>
+                            {% endif %}
+                        </li>
+                    {% endfor %}
+                    </ul>
+                {% else %}
+                    <p class="text-muted text-center py-4 mb-0">No attachments found for this record.</p>
+                {% endif %}
+            </div>
+        </div>
+
+        <div class="details-card">
+            <div class="card-header-custom">
+                <i class="fas fa-info-circle me-2"></i> Processing Status
+            </div>
+            <div class="card-body-custom pt-3">
+                <div class="field-row">
+                    <div class="field-label">Status</div>
+                    <div class="field-value">
+                        <span class="badge badge-status-{{ inspection.processing_status }}">{{ inspection.processing_status }}</span>
                     </div>
                 </div>
-            </div>
-        </div>
-    </div>
-
-    <div class="modal fade" id="attachmentModal" tabindex="-1" aria-hidden="true">
-        <div class="modal-dialog modal-xl">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title" id="attachmentModalLabel">Attachment</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                <div class="field-row">
+                    <div class="field-label">Retry Count</div>
+                    <div class="field-value">{{ inspection.retry_count or 0 }}</div>
                 </div>
-                <div class="modal-body p-0 modal-content-wrapper" id="modalBody">
+                <div class="field-row">
+                    <div class="field-label">Last Updated</div>
+                    <div class="field-value">{{ inspection.updated_at.strftime('%d-%m-%Y %H:%M') if inspection.updated_at else 'N/A' }}</div>
                 </div>
             </div>
         </div>
     </div>
+</div>
 
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<div class="modal fade" id="attachmentModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-xl">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="attachmentModalLabel">Attachment</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body p-0 modal-content-wrapper" id="modalBody">
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
 
-    <script>
-        const inspectionTip = "{{ inspection.tip }}";
+{% block scripts %}
+<script>
+    const inspectionTip = "{{ inspection.tip }}";
 
-        function openAttachment(attachmentTip, filename) {
-            const modalEl = document.getElementById('attachmentModal');
-            const modalBody = document.getElementById('modalBody');
-            const modalTitle = document.getElementById('attachmentModalLabel');
+    function openAttachment(attachmentTip, filename) {
+        const modalEl = document.getElementById('attachmentModal');
+        const modalBody = document.getElementById('modalBody');
+        const modalTitle = document.getElementById('attachmentModalLabel');
+        
+        modalTitle.textContent = filename;
+        modalBody.innerHTML = '<div class="spinner-border text-primary m-5" role="status"><span class="visually-hidden">Loading...</span></div>';
+        
+        const modal = new bootstrap.Modal(modalEl);
+        modal.show();
+
+        const ext = filename.split('.').pop().toLowerCase();
+        const url = `/inspection/${inspectionTip}/attachment/${attachmentTip}`;
+        
+        setTimeout(() => {
+            let content = '';
             
-            modalTitle.textContent = filename;
-            modalBody.innerHTML = '<div class="spinner-border text-primary m-5" role="status"><span class="visually-hidden">Loading...</span></div>';
-            
-            const modal = new bootstrap.Modal(modalEl);
-            modal.show();
-
-            const ext = filename.split('.').pop().toLowerCase();
-            const url = `/inspection/${inspectionTip}/attachment/${attachmentTip}`;
-            
-            setTimeout(() => {
-                let content = '';
-                
-                if (['jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp'].includes(ext)) {
-                    content = `<img src="${url}" id="modalImage" alt="${filename}">`;
-                } else if (ext === 'pdf' || ext === 'txt') {
-                    content = `<iframe src="${url}"></iframe>`;
-                } else {
-                    content = `
-                        <div class="text-center p-5">
-                            <i class="fas fa-file-download fa-3x text-muted mb-3"></i>
-                            <h5 class="mb-3">Preview not available</h5>
-                            <p>This file type (.${ext}) cannot be viewed in the browser.</p>
-                            <a href="${url}" class="btn btn-primary px-4">Download File</a>
-                        </div>
-                    `;
-                }
-                modalBody.innerHTML = content;
-            }, 300);
-        }
-    </script>
-</body>
-</html>
+            if (['jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp'].includes(ext)) {
+                content = `<img src="${url}" id="modalImage" alt="${filename}">`;
+            } else if (ext === 'pdf' || ext === 'txt') {
+                content = `<iframe src="${url}"></iframe>`;
+            } else {
+                content = `
+                    <div class="text-center p-5">
+                        <i class="fas fa-file-download fa-3x text-muted mb-3"></i>
+                        <h5 class="mb-3">Preview not available</h5>
+                        <p>This file type (.${ext}) cannot be viewed in the browser.</p>
+                        <a href="${url}" class="btn btn-primary px-4">Download File</a>
+                    </div>
+                `;
+            }
+            modalBody.innerHTML = content;
+        }, 300);
+    }
+</script>
+{% endblock %}

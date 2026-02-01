@@ -2,231 +2,87 @@
 
 {% block title %}Service Status - Noggin Processor{% endblock %}
 
-{% block extra_css %}
-<style>
-    .tabs {
-        display: flex;
-        gap: 0;
-        margin-bottom: 0;
-        border-bottom: 2px solid var(--gs-slate-light);
-    }
-    
-    .tab {
-        padding: 1rem 2rem;
-        cursor: pointer;
-        background: #e9ecef;
-        border: none;
-        font-weight: 600;
-        color: var(--gs-slate);
-        transition: all 0.2s;
-        border-radius: 8px 8px 0 0;
-        margin-right: 4px;
-        text-decoration: none;
-        display: inline-flex;
-        align-items: center;
-        gap: 0.5rem;
-    }
-    
-    .tab:hover {
-        background: #dee2e6;
-    }
-    
-    .tab.active {
-        background: white;
-        color: var(--gs-slate);
-        border-bottom: 2px solid white;
-        margin-bottom: -2px;
-    }
-    
-    .tab-content {
-        display: none;
-        background: white;
-        padding: 1.5rem;
-        border-radius: 0 8px 8px 8px;
-        box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-    }
-    
-    .tab-content.active {
-        display: block;
-    }
-    
-    .status-indicator {
-        width: 12px;
-        height: 12px;
-        border-radius: 50%;
-        display: inline-block;
-    }
-    
-    .status-indicator.running {
-        background: #27ae60;
-        box-shadow: 0 0 8px rgba(39, 174, 96, 0.5);
-    }
-    
-    .status-indicator.stopped {
-        background: #e74c3c;
-    }
-    
-    .service-header {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        margin-bottom: 1.5rem;
-        padding-bottom: 1rem;
-        border-bottom: 1px solid #eee;
-    }
-    
-    .service-title {
-        display: flex;
-        align-items: center;
-        gap: 1rem;
-    }
-    
-    .service-title h3 {
-        margin: 0;
-    }
-    
-    .service-meta {
-        display: flex;
-        gap: 2rem;
-        color: #7f8c8d;
-        font-size: 0.9rem;
-    }
-    
-    .service-meta span {
-        display: flex;
-        align-items: center;
-        gap: 0.5rem;
-    }
-    
-    .log-container {
-        background: #1e2a38;
-        color: #ecf0f1;
-        padding: 1rem;
-        border-radius: 6px;
-        font-family: 'Consolas', 'Monaco', monospace;
-        font-size: 0.82rem;
-        line-height: 1.5;
-        max-height: 500px;
-        overflow-y: auto;
-        white-space: pre-wrap;
-        word-break: break-word;
-    }
-    
-    .log-container::-webkit-scrollbar {
-        width: 8px;
-    }
-    
-    .log-container::-webkit-scrollbar-track {
-        background: #2c3e50;
-    }
-    
-    .log-container::-webkit-scrollbar-thumb {
-        background: #5a6c7d;
-        border-radius: 4px;
-    }
-    
-    .commands-card {
-        margin-top: 1.5rem;
-        padding: 1rem 1.5rem;
-        background: #f8f9fa;
-        border-radius: 6px;
-        border-left: 4px solid var(--gs-gold);
-    }
-    
-    .commands-card h4 {
-        margin: 0 0 0.75rem 0;
-        font-size: 0.95rem;
-        color: var(--gs-slate);
-    }
-    
-    .commands-card code {
-        display: block;
-        margin: 0.4rem 0;
-        padding: 0.3rem 0.6rem;
-        background: white;
-        border-radius: 4px;
-        font-size: 0.85rem;
-    }
-</style>
-{% endblock %}
-
 {% block content %}
-<div class="card" style="padding: 0; overflow: visible; background: transparent; box-shadow: none;">
-    
-    <!-- Tabs -->
-    <div class="tabs">
+<ul class="nav service-tabs" role="tablist">
+    <li class="nav-item" role="presentation">
         <a href="{{ url_for('service_status', tab='web') }}" 
-           class="tab {% if active_tab == 'web' %}active{% endif %}">
+           class="nav-link {% if active_tab == 'web' %}active{% endif %}"
+           role="tab">
             <span class="status-indicator {% if web_service.active %}running{% else %}stopped{% endif %}"></span>
             Web Dashboard
         </a>
+    </li>
+    <li class="nav-item" role="presentation">
         <a href="{{ url_for('service_status', tab='processor') }}" 
-           class="tab {% if active_tab == 'processor' %}active{% endif %}">
+           class="nav-link {% if active_tab == 'processor' %}active{% endif %}"
+           role="tab">
             <span class="status-indicator {% if processor_service.active %}running{% else %}stopped{% endif %}"></span>
             Processor Service
         </a>
-    </div>
-    
-    <!-- Web Service Tab -->
-    <div class="tab-content {% if active_tab == 'web' %}active{% endif %}" id="web-tab">
-        <div class="service-header">
-            <div class="service-title">
-                <h3>noggin-web</h3>
-                {% if web_service.active %}
-                    <span class="badge success">Running</span>
-                {% else %}
-                    <span class="badge danger">Stopped</span>
-                {% endif %}
-            </div>
-            <div class="service-meta">
-                <span>PID: <strong>{{ web_service.pid }}</strong></span>
-                <span>State: <strong>{{ web_service.state }}/{{ web_service.substate }}</strong></span>
-                {% if web_service.memory and web_service.memory != 'N/A' and web_service.memory != '[not set]' %}
-                    <span>Memory: <strong>{{ (web_service.memory|int / 1024 / 1024)|round(1) }} MB</strong></span>
-                {% endif %}
-            </div>
+    </li>
+</ul>
+
+{% if active_tab == 'web' %}
+<div class="service-tab-content">
+    <div class="d-flex justify-content-between align-items-center mb-3 pb-3 border-bottom">
+        <div class="d-flex align-items-center gap-3">
+            <h3 class="h5 mb-0">noggin-web</h3>
+            {% if web_service.active %}
+                <span class="badge bg-success">Running</span>
+            {% else %}
+                <span class="badge bg-danger">Stopped</span>
+            {% endif %}
         </div>
-        
-        <h4>Recent Logs</h4>
-        <div class="log-container">{{ web_service.logs }}</div>
-        
-        <div class="commands-card">
-            <h4>Management Commands</h4>
-            <code>./manage_web_service.sh status</code>
-            <code>./manage_web_service.sh restart</code>
-            <code>./manage_web_service.sh logs-follow</code>
+        <div class="d-flex gap-4 text-muted small">
+            <span>PID: <strong>{{ web_service.pid }}</strong></span>
+            <span>State: <strong>{{ web_service.state }}/{{ web_service.substate }}</strong></span>
+            {% if web_service.memory and web_service.memory != 'N/A' and web_service.memory != '[not set]' %}
+                <span>Memory: <strong>{{ (web_service.memory|int / 1024 / 1024)|round(1) }} MB</strong></span>
+            {% endif %}
         </div>
     </div>
     
-    <!-- Processor Service Tab -->
-    <div class="tab-content {% if active_tab == 'processor' %}active{% endif %}" id="processor-tab">
-        <div class="service-header">
-            <div class="service-title">
-                <h3>noggin-processor</h3>
-                {% if processor_service.active %}
-                    <span class="badge success">Running</span>
-                {% else %}
-                    <span class="badge danger">Stopped</span>
-                {% endif %}
-            </div>
-            <div class="service-meta">
-                <span>PID: <strong>{{ processor_service.pid }}</strong></span>
-                <span>State: <strong>{{ processor_service.state }}/{{ processor_service.substate }}</strong></span>
-                {% if processor_service.memory and processor_service.memory != 'N/A' and processor_service.memory != '[not set]' %}
-                    <span>Memory: <strong>{{ (processor_service.memory|int / 1024 / 1024)|round(1) }} MB</strong></span>
-                {% endif %}
-            </div>
-        </div>
-        
-        <h4>Recent Logs</h4>
-        <div class="log-container">{{ processor_service.logs }}</div>
-        
-        <div class="commands-card">
-            <h4>Management Commands</h4>
-            <code>./manage_service.sh status</code>
-            <code>./manage_service.sh restart</code>
-            <code>./manage_service.sh follow</code>
-        </div>
+    <h5 class="mb-2">Recent Logs</h5>
+    <div class="log-container">{{ web_service.logs }}</div>
+    
+    <div class="commands-card">
+        <h5>Management Commands</h5>
+        <code>./manage_web_service.sh status</code>
+        <code>./manage_web_service.sh restart</code>
+        <code>./manage_web_service.sh logs-follow</code>
     </div>
 </div>
+{% endif %}
+
+{% if active_tab == 'processor' %}
+<div class="service-tab-content">
+    <div class="d-flex justify-content-between align-items-center mb-3 pb-3 border-bottom">
+        <div class="d-flex align-items-center gap-3">
+            <h3 class="h5 mb-0">noggin-processor</h3>
+            {% if processor_service.active %}
+                <span class="badge bg-success">Running</span>
+            {% else %}
+                <span class="badge bg-danger">Stopped</span>
+            {% endif %}
+        </div>
+        <div class="d-flex gap-4 text-muted small">
+            <span>PID: <strong>{{ processor_service.pid }}</strong></span>
+            <span>State: <strong>{{ processor_service.state }}/{{ processor_service.substate }}</strong></span>
+            {% if processor_service.memory and processor_service.memory != 'N/A' and processor_service.memory != '[not set]' %}
+                <span>Memory: <strong>{{ (processor_service.memory|int / 1024 / 1024)|round(1) }} MB</strong></span>
+            {% endif %}
+        </div>
+    </div>
+    
+    <h5 class="mb-2">Recent Logs</h5>
+    <div class="log-container">{{ processor_service.logs }}</div>
+    
+    <div class="commands-card">
+        <h5>Management Commands</h5>
+        <code>./manage_service.sh status</code>
+        <code>./manage_service.sh restart</code>
+        <code>./manage_service.sh follow</code>
+    </div>
+</div>
+{% endif %}
 {% endblock %}

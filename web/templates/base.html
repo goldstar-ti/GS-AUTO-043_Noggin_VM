@@ -4,241 +4,41 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}NVM Noggin Virtual Machine{% endblock %}</title>
-    <style>
-        :root {
-            --gs-gold: #f2c438;
-            --gs-gold-dark: #d4a928;
-            --gs-slate: #000000a3;
-            --gs-slate-light: #82909f8c;
-            --gs-text: #000000;
-            --gs-bg: #f1efe7;
-        }
-
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-        
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-            background: var(--gs-bg);
-            color: var(--gs-text);
-        }
-        
-        .header {
-            background: var(--gs-slate);
-            color: white;
-            padding: 1rem 2rem;
-            border-bottom: 5px solid var(--gs-gold);
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-        }
-        
-        .header h1 {
-            font-size: 1.5rem;
-            font-weight: 700;
-            letter-spacing: 0.5px;
-        }
-        
-        .nav {
-            background: var(--gs-slate-light);
-            padding: 0 2rem;
-            display: flex;
-            align-items: center;
-        }
-        
-        .nav a {
-            color: #ecf0f1;
-            text-decoration: none;
-            padding: 1rem 1.5rem;
-            display: inline-block;
-            transition: all 0.2s;
-            font-weight: 500;
-            border-bottom: 3px solid transparent;
-        }
-        
-        .nav a:hover {
-            background: rgba(255,255,255,0.05);
-            color: white;
-        }
-        
-        .nav a.active {
-            color: var(--gs-gold);
-            border-bottom-color: var(--gs-gold);
-            background: rgba(0,0,0,0.1);
-        }
-        
-        .container {
-            max-width: 1200px;
-            margin: 2rem auto;
-            padding: 0 1rem;
-        }
-        
-        .card {
-            background: white;
-            padding: 1.5rem;
-            border-radius: 8px;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-            margin-bottom: 1.5rem;
-            border-top: 3px solid transparent;
-        }
-        
-        h2, h3 {
-            color: var(--gs-slate);
-            margin-bottom: 1rem;
-        }
-        
-        table {
-            width: 100%;
-            border-collapse: collapse;
-            margin-top: 1rem;
-        }
-        
-        th {
-            text-align: left;
-            padding: 0.8rem;
-            background: var(--gs-slate-light);
-            color: white;
-            font-weight: 500;
-            border-radius: 4px 4px 0 0;
-        }
-        
-        td {
-            padding: 0.8rem;
-            border-bottom: 1px solid #eee;
-            cursor: default;
-        }
-        
-        tr:hover td {
-            background-color: #fdfbf0;
-        }
-        
-        .btn, button {
-            display: inline-block;
-            background: var(--gs-gold);
-            color: var(--gs-slate);
-            padding: 0.5rem 1rem;
-            border-radius: 4px;
-            text-decoration: none;
-            font-weight: 700;
-            border: none;
-            cursor: pointer;
-            transition: background 0.2s;
-        }
-        
-        .btn:hover, button:hover {
-            background: var(--gs-gold-dark);
-        }
-
-        .btn-secondary {
-            background: #e0e0e0;
-            color: #333;
-        }
-        .btn-secondary:hover { background: #d0d0d0; }
-        
-        .stats-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-            gap: 1rem;
-            margin-bottom: 1.5rem;
-        }
-        
-        .stat-card {
-            background: white;
-            padding: 1.5rem;
-            border-radius: 8px;
-            text-align: center;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-            border-bottom: 4px solid #ddd;
-        }
-        
-        .stat-card .number {
-            font-size: 2rem;
-            font-weight: bold;
-            color: var(--gs-slate);
-            cursor: default; 
-        }
-        
-        .stat-card .label {
-            color: #7f8c8d;
-            font-size: 0.85rem;
-            text-transform: uppercase;
-            letter-spacing: 1px;
-            margin-bottom: 0.5rem;
-        }
-        
-        .stat-card.success { border-color: #27ae60; }
-        .stat-card.info { border-color: #3498db; }
-        .stat-card.danger { border-color: #e74c3c; }
-        .stat-card.warning { border-color: var(--gs-gold); }
-        
-        .badge {
-            padding: 4px 8px;
-            border-radius: 12px;
-            font-size: 0.8em;
-            font-weight: 600;
-        }
-        .badge.success { background: #d4edda; color: #155724; }
-        .badge.info { background: #d1ecf1; color: #0c5460; }
-        .badge.danger { background: #f8d7da; color: #721c24; }
-        .badge.warning { background: #fff3cd; color: #856404; }
-        .badge.secondary { background: #e2e3e5; color: #383d41; }
-
-        .pagination { margin-top: 1rem; display: flex; gap: 0.5rem; justify-content: center; }
-        .pagination a { 
-            padding: 0.5rem 1rem; 
-            border: 1px solid #ddd; 
-            text-decoration: none; 
-            color: var(--gs-slate); 
-            background: white;
-            border-radius: 4px;
-        }
-        .pagination a.active {
-            background: var(--gs-gold);
-            color: var(--gs-slate);
-            border-color: var(--gs-gold);
-            font-weight: bold;
-        }
-
-        .flash-messages {
-            margin-bottom: 1rem;
-        }
-        .flash {
-            padding: 1rem;
-            border-radius: 4px;
-            margin-bottom: 0.5rem;
-        }
-        .flash.error { background: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
-        .flash.success { background: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
-
-        code {
-            background: #f1f1f1;
-            padding: 2px 6px;
-            border-radius: 3px;
-            font-family: 'Courier New', monospace;
-            font-size: 0.9em;
-        }
-    </style>
-    {% block extra_css %}{% endblock %}
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}" media="screen">
 </head>
 <body>
-    <div class="header">
+    <header class="app-header">
         <h1>Noggin Data Processor</h1>
-    </div>
+    </header>
     
-    <nav class="nav">
-        <a href="{{ url_for('index') }}" class="{% if request.endpoint == 'index' %}active{% endif %}">Dashboard</a>
-        <a href="{{ url_for('inspections') }}" class="{% if request.endpoint == 'inspections' %}active{% endif %}">Inspections</a>
-        <a href="{{ url_for('hashes') }}" class="{% if request.endpoint == 'hashes' %}active{% endif %}">Hashes</a>
-        <a href="{{ url_for('service_status') }}" class="{% if request.endpoint == 'service_status' %}active{% endif %}">Service Status</a>
+    <nav class="app-nav">
+        <ul class="nav">
+            <li class="nav-item">
+                <a href="{{ url_for('index') }}" class="nav-link {% if request.endpoint == 'index' %}active{% endif %}">Dashboard</a>
+            </li>
+            <li class="nav-item">
+                <a href="{{ url_for('inspections') }}" class="nav-link {% if request.endpoint == 'inspections' %}active{% endif %}">Inspections</a>
+            </li>
+            <li class="nav-item">
+                <a href="{{ url_for('hashes') }}" class="nav-link {% if request.endpoint == 'hashes' %}active{% endif %}">Hashes</a>
+            </li>
+            <li class="nav-item">
+                <a href="{{ url_for('service_status') }}" class="nav-link {% if request.endpoint == 'service_status' %}active{% endif %}">Service Status</a>
+            </li>
+        </ul>
     </nav>
 
-    <div class="container">
+    <div class="container py-4">
         {% with messages = get_flashed_messages(with_categories=true) %}
             {% if messages %}
-                <div class="flash-messages">
+                <div class="mb-3">
                     {% for category, message in messages %}
-                        <div class="flash {{ category }}">{{ message }}</div>
+                        <div class="alert flash-{{ category }} alert-dismissible fade show" role="alert">
+                            {{ message }}
+                            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                        </div>
                     {% endfor %}
                 </div>
             {% endif %}
@@ -246,5 +46,8 @@
 
         {% block content %}{% endblock %}
     </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    {% block scripts %}{% endblock %}
 </body>
 </html>
