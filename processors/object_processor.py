@@ -31,6 +31,7 @@ from .base_processor import (
     ProgressTracker,
     sanitise_filename
 )
+from .attachment_extractor import AttachmentExtractor, AttachmentInfo
 from .field_processor import FieldProcessor, DatabaseRecordManager
 from .report_generator import create_report_generator
 
@@ -106,6 +107,9 @@ class ObjectProcessor:
         self.attachment_downloader: AttachmentDownloader = AttachmentDownloader(
             self.config, self.db_manager, self.api_client
         )
+        
+        # Attachment extractor
+        self.attachment_extractor: AttachmentExtractor = AttachmentExtractor(self.config)
         
         # Retry manager
         self.retry_manager: RetryManager = RetryManager(self.config)
@@ -358,19 +362,15 @@ class ObjectProcessor:
     def _process_attachments_and_report(self, response_data: Dict[str, Any],
                                         inspection_id: str, tip_value: str) -> None:
         """Process attachments and generate report"""
-        # Get date for folder creation
         date_str = response_data.get('date', '')
         
-        # Create inspection folder
         inspection_folder = self.folder_manager.create_inspection_folder(date_str, inspection_id)
         
-        # Generate and save report
-        # PASSED date_str to save_report for filename generation
         report = self.report_generator.generate_report(response_data, inspection_id)
         self.report_generator.save_report(report, inspection_folder, inspection_id, date_str)
         
-        # Process attachments
-        attachments = response_data.get('attachments', [])
+        # Extract attachments from all fields (handles diverse patterns)
+        attachments = self.attachment_extractor.extract_attachments(response_data)
         
         if not attachments:
             logger.info(f"No attachments for {inspection_id}")
@@ -381,26 +381,21 @@ class ObjectProcessor:
         
         logger.info(f"Processing {len(attachments)} attachments for {inspection_id}")
         
-        # Download attachments
         successful_downloads = 0
         attachment_filenames: List[str] = []
         
-        for i, attachment_url in enumerate(attachments, 1):
+        for i, att_info in enumerate(attachments, 1):
             if not self.shutdown_handler.should_continue():
                 logger.warning(f"Shutdown during attachment {i}/{len(attachments)}")
                 break
             
-            # Extract attachment TIP
-            attachment_tip = attachment_url.split('tip=')[-1] if 'tip=' in attachment_url else f'unknown_{i}'
-            
-            # Construct filename
+            # Construct filename with field-specific stub
             filename = self.folder_manager.construct_attachment_filename(
-                inspection_id, date_str, i
+                inspection_id, date_str, att_info.sequence_in_field, stub=att_info.stub
             )
             
-            # Download
             success, retry_count, file_size_mb, error_msg = self.attachment_downloader.download(
-                attachment_url, filename, inspection_id, attachment_tip,
+                att_info.url, filename, inspection_id, att_info.attachment_tip,
                 inspection_folder, tip_value, i
             )
             
@@ -408,11 +403,9 @@ class ObjectProcessor:
                 successful_downloads += 1
                 attachment_filenames.append(filename)
             
-            # Pause between attachments
             if self.attachment_pause > 0 and i < len(attachments):
                 time.sleep(self.attachment_pause)
         
-        # Determine final status
         if not self.shutdown_handler.should_continue():
             final_status = 'interrupted'
         elif successful_downloads == len(attachments):
@@ -422,14 +415,12 @@ class ObjectProcessor:
         else:
             final_status = 'failed'
         
-        # Update database
         all_complete = successful_downloads == len(attachments)
         self.record_manager.update_attachment_counts(
             tip_value, len(attachments), successful_downloads, all_complete
         )
         self.record_manager.update_processing_status(tip_value, final_status)
         
-        # Log to session
         self._log_session_record(tip_value, inspection_id, successful_downloads, attachment_filenames)
         
         logger.info(f"Completed {inspection_id}: {successful_downloads}/{len(attachments)} attachments")

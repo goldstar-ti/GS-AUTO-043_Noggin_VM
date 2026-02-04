@@ -7,6 +7,7 @@ Main components:
 - ObjectProcessor: Main processing orchestrator
 - FieldProcessor: Config-driven field extraction
 - ReportGenerator: Template-based report generation
+- AttachmentExtractor: Multi-pattern attachment detection
 - Base utilities: API client, attachment downloader, etc.
 
 Usage:
@@ -22,6 +23,7 @@ Usage:
 from .object_processor import ObjectProcessor, create_processor
 from .field_processor import FieldProcessor, DatabaseRecordManager
 from .report_generator import ReportGenerator, DefaultReportGenerator, create_report_generator
+from .attachment_extractor import AttachmentExtractor, AttachmentInfo, create_attachment_extractor
 from .base_processor import (
     GracefulShutdownHandler,
     APIClient,
@@ -48,6 +50,11 @@ __all__ = [
     'ReportGenerator',
     'DefaultReportGenerator',
     'create_report_generator',
+    
+    # Attachment extraction
+    'AttachmentExtractor',
+    'AttachmentInfo',
+    'create_attachment_extractor',
     
     # Base utilities
     'GracefulShutdownHandler',

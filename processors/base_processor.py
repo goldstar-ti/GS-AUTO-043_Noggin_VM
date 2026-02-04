@@ -445,25 +445,35 @@ class FolderManager:
         return inspection_folder
     
     def construct_attachment_filename(self, inspection_id: str, date_str: str, 
-                                      sequence: int) -> str:
-        """Construct standardised attachment filename"""
+                                      sequence: int, stub: Optional[str] = None) -> str:
+        """
+        Construct standardised attachment filename.
+        
+        Args:
+            inspection_id: The inspection identifier
+            date_str: ISO format date string
+            sequence: Sequence number for this attachment within its field/group
+            stub: Optional stub override (e.g., 'skid-plate-t1', 'obs1'). 
+                  If None, uses config default.
+        """
         sanitised_id: str = sanitise_filename(inspection_id)
         
         try:
             if date_str:
                 date_obj = datetime.fromisoformat(date_str.replace('Z', '+00:00'))
-                # date_formatted: str = date_obj.strftime('%Y%m%d')
-                date_formatted: str = date_obj.strftime('%d %b %Y') # e.g., 25 Dec 2023
+                date_formatted: str = date_obj.strftime('%d %b %Y')
             else:
                 raise ValueError("Empty date")
         except (ValueError, AttributeError):
             date_formatted = 'unknown'
         
+        effective_stub = stub if stub is not None else self.filename_stub
+        
         filename: str = self.attachment_pattern.format(
             abbreviation=self.object_type_abbrev,
             inspection_id=sanitised_id,
             date=date_formatted,
-            stub=self.filename_stub,
+            stub=effective_stub,
             sequence=str(sequence).zfill(3)
         )
         

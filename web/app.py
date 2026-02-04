@@ -1,6 +1,6 @@
 """
 Noggin Data Processor - Web Dashboard
-Noggin Object Binary Backup Yeoman
+Noggin Object Binary Backup Yeoman (NOBBY)
 
 Flask application providing:
 - Dashboard with processing statistics
@@ -10,7 +10,6 @@ Flask application providing:
 - Service status monitoring
 - EML export functionality
 """
-
 import os
 import sys
 import logging
@@ -18,28 +17,36 @@ import subprocess
 from pathlib import Path
 from datetime import datetime
 from typing import Dict, Any, List, Optional
+from io import BytesIO
 
-from flask import Flask, render_template, request, flash, send_file, redirect, url_for
+from flask import Flask, render_template, request, flash, send_file, redirect, url_for, Response
 from flask_httpauth import HTTPBasicAuth
 from werkzeug.security import generate_password_hash, check_password_hash
 
-sys.path.insert(0, str(Path(__file__).parent.parent)) # Add parent directory to path for common module access
+sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from common import ConfigLoader, DatabaseConnectionManager, HashManager, LoggerManager
 from email_manager import EmailManager
+from display_config_manager import DisplayConfigManager, format_value
 
 RESULTS_PER_PAGE = 100
-
 CONFIG_PATH = '../config/base_config.ini'
 
 config = ConfigLoader(CONFIG_PATH)
 db_manager = DatabaseConnectionManager(config)
 hash_manager = HashManager(config, db_manager)
 email_mgr = EmailManager()
+display_config_mgr = DisplayConfigManager('../config', config)
 
 logger: logging.Logger = logging.getLogger(__name__)
 
-# ### FLASK APP & AUTHENTICATION
+# Web display settings from config
+HIDE_EMPTY_FIELDS = config.getboolean('web_display', 'hide_empty_fields', fallback=True)
+THUMBNAIL_WIDTH = config.getint('web_display', 'thumbnail_width', fallback=120)
+THUMBNAIL_HEIGHT = config.getint('web_display', 'thumbnail_height', fallback=90)
+DATE_FORMAT = config.get('web_display', 'date_format', fallback='%d %b %Y')
+DATETIME_FORMAT = config.get('web_display', 'datetime_format', fallback='%d %b %Y %H:%M')
+
 app = Flask(__name__)
 app.secret_key = 'a1b5a507e8d554cd54f506f3b1056a71f237309a9f4565b6cc9632d4d3352faa'
 auth = HTTPBasicAuth()
@@ -49,11 +56,13 @@ users = {
     "hseq": generate_password_hash("hseq")
 }
 
+
 @auth.verify_password
 def verify_password(username: str, password: str) -> Optional[str]:
     if username in users and check_password_hash(users.get(username), password):
         return username
     return None
+
 
 def get_filter_options() -> Dict[str, List[str]]:
     """Fetch distinct values for filter dropdowns"""
@@ -72,6 +81,7 @@ def get_filter_options() -> Dict[str, List[str]]:
         logger.warning(f"Could not fetch filter options: {e}")
         return {'object_types': [], 'vehicles': []}
 
+
 def parse_filters(args) -> Dict[str, Any]:
     """Extract and sanitise filter parameters from request args"""
     return {
@@ -84,13 +94,31 @@ def parse_filters(args) -> Dict[str, Any]:
         'search_text': args.get('search', '').strip()
     }
 
-### ROUTES ###
+
+def format_inspection_date(dt: datetime) -> str:
+    """Format inspection date, hiding time if midnight"""
+    if dt is None:
+        return ''
+    if isinstance(dt, str):
+        return dt
+    if dt.hour == 0 and dt.minute == 0 and dt.second == 0:
+        return dt.strftime(DATE_FORMAT)
+    return dt.strftime(DATETIME_FORMAT)
+
+
+def is_image_file(filename: str) -> bool:
+    """Check if file is an image based on extension"""
+    if not filename:
+        return False
+    ext = filename.lower().split('.')[-1]
+    return ext in ('jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp')
+
+
 @app.route('/')
 @auth.login_required
 def index():
     """Dashboard with processing statistics and recent activity"""
     try:
-        # stats grid iteration
         status_query = """
             SELECT processing_status, COUNT(*) as count
             FROM noggin_schema.noggin_data
@@ -151,6 +179,7 @@ def index():
         logger.error(f"Error loading dashboard: {e}", exc_info=True)
         return "Internal Server Error - Check Logs", 500
 
+
 @app.route('/inspections')
 @auth.login_required
 def inspections():
@@ -198,7 +227,6 @@ def inspections():
 
         where_sql = " WHERE " + " AND ".join(where_clauses) if where_clauses else ""
 
-        # Total count
         count_query = f"SELECT COUNT(*) as total FROM noggin_schema.noggin_data{where_sql}"
         count_result = db_manager.execute_query_dict(count_query, tuple(params) if params else None)
         total = count_result[0]['total'] if count_result else 0
@@ -255,7 +283,7 @@ def inspection_detail(tip: str):
         inspection_results = db_manager.execute_query_dict(inspection_query, (tip,))
 
         if not inspection_results:
-            return f"NOBBY SAYS: Inspection not valid. Contact Helpdesk and ask them to check {tip} ", 404
+            return f"NOBBY SAYS: Inspection not valid. Contact Helpdesk and ask them to check {tip}", 404
 
         inspection = inspection_results[0]
 
@@ -274,6 +302,10 @@ def inspection_detail(tip: str):
         """
         attachments = db_manager.execute_query_dict(attachments_query, (tip,))
 
+        # Mark image attachments for thumbnail display
+        for att in attachments:
+            att['is_image'] = is_image_file(att.get('filename', ''))
+
         errors = []
         try:
             errors_query = """
@@ -287,27 +319,35 @@ def inspection_detail(tip: str):
         except Exception:
             pass
 
-        # Build display fields from inspection data
-        # Exclude internal/system columns
-        exclude_columns = {
-            'tip', 'raw_data', 'created_at', 'updated_at', 'processing_status',
-            'retry_count', 'last_error', 'total_attachments', 'completed_attachment_count'
-        }
-        fields = []
-        for key, value in inspection.items():
-            if key not in exclude_columns and value is not None and value != '':
-                label = key.replace('_', ' ').title()
-                fields.append({'label': label, 'value': value})
+        # Build structured display data using display config manager
+        display_data = display_config_mgr.build_display_data(
+            inspection,
+            hide_empty=HIDE_EMPTY_FIELDS,
+            date_format=DATE_FORMAT,
+            datetime_format=DATETIME_FORMAT
+        )
+
+        # Get object type config for additional info
+        object_type = inspection.get('object_type', '')
+        type_config = display_config_mgr.get_config(object_type)
+        
+        # Format inspection date for header
+        inspection_date = inspection.get('inspection_date')
+        formatted_date = format_inspection_date(inspection_date)
 
         return render_template(
             'inspection_detail.html',
             inspection=inspection,
             inspection_id=inspection.get('noggin_reference') or tip,
-            type_label=inspection.get('object_type', 'Inspection'),
-            object_type=inspection.get('object_type'),
-            fields=fields,
+            type_label=type_config.abbreviation if type_config else object_type[:3].upper(),
+            full_type_name=type_config.full_name if type_config else object_type,
+            object_type=object_type,
+            display_data=display_data,
             attachments=attachments,
-            errors=errors
+            errors=errors,
+            formatted_date=formatted_date,
+            thumbnail_width=THUMBNAIL_WIDTH,
+            thumbnail_height=THUMBNAIL_HEIGHT,
         )
 
     except Exception as e:
@@ -341,6 +381,54 @@ def serve_attachment(tip: str, attachment_tip: str):
     except Exception as e:
         logger.error(f"Error serving attachment {attachment_tip}: {e}")
         return "Error retrieving file", 500
+
+
+@app.route('/inspection/<tip>/attachment/<attachment_tip>/thumbnail')
+@auth.login_required
+def serve_thumbnail(tip: str, attachment_tip: str):
+    """Serve a thumbnail of an image attachment"""
+    try:
+        query = """
+            SELECT file_path, filename
+            FROM noggin_schema.attachments
+            WHERE record_tip = %s AND attachment_tip = %s
+        """
+        result = db_manager.execute_query_dict(query, (tip, attachment_tip))
+
+        if not result:
+            return "Attachment not found", 404
+
+        file_path = result[0]['file_path']
+        filename = result[0]['filename']
+
+        if not file_path or not os.path.exists(file_path):
+            return "File not found on disk", 404
+
+        if not is_image_file(filename):
+            return "Not an image file", 400
+
+        # Try to generate thumbnail using PIL
+        try:
+            from PIL import Image
+            
+            img = Image.open(file_path)
+            img.thumbnail((THUMBNAIL_WIDTH, THUMBNAIL_HEIGHT), Image.Resampling.LANCZOS)
+            
+            thumb_io = BytesIO()
+            img_format = 'JPEG' if filename.lower().endswith(('.jpg', '.jpeg')) else 'PNG'
+            img.save(thumb_io, format=img_format, quality=85)
+            thumb_io.seek(0)
+            
+            mime_type = 'image/jpeg' if img_format == 'JPEG' else 'image/png'
+            return send_file(thumb_io, mimetype=mime_type)
+            
+        except ImportError:
+            # PIL not available, serve original file
+            return send_file(file_path, download_name=filename)
+
+    except Exception as e:
+        logger.error(f"Error serving thumbnail {attachment_tip}: {e}")
+        return "Error retrieving thumbnail", 500
 
 
 @app.route('/inspection/<tip>/eml')
@@ -435,7 +523,6 @@ def service_status():
             )
             logs = log_result.stdout or log_result.stderr or 'No logs available'
             
-            # Get more detailed status
             detail_result = subprocess.run(
                 ['systemctl', 'show', service_name, '--property=ActiveState,SubState,MainPID,MemoryCurrent'],
                 capture_output=True,
@@ -447,10 +534,26 @@ def service_status():
                     key, value = line.split('=', 1)
                     details[key] = value
             
-            return {'name': service_name, 'active': is_active, 'state': details.get('ActiveState', 'unknown'), 'substate': details.get('SubState', 'unknown'), 'pid': details.get('MainPID', 'N/A'), 'memory': details.get('MemoryCurrent', 'N/A'), 'logs': logs}
+            return {
+                'name': service_name,
+                'active': is_active,
+                'state': details.get('ActiveState', 'unknown'),
+                'substate': details.get('SubState', 'unknown'),
+                'pid': details.get('MainPID', 'N/A'),
+                'memory': details.get('MemoryCurrent', 'N/A'),
+                'logs': logs
+            }
         except Exception as e:
             logger.warning(f"NOBBY SAYS: Could not get status for {service_name}: {e}")
-            return {'name': service_name, 'active': False, 'state': 'error', 'substate': str(e), 'pid': 'N/A', 'memory': 'N/A', 'logs': f'NOBBY SAYS: Error fetching logs: {e}'}
+            return {
+                'name': service_name,
+                'active': False,
+                'state': 'error',
+                'substate': str(e),
+                'pid': 'N/A',
+                'memory': 'N/A',
+                'logs': f'NOBBY SAYS: Error fetching logs: {e}'
+            }
     
     try:
         web_service = get_service_info('noggin-web')
@@ -470,10 +573,6 @@ def service_status():
         return "Status check failed", 500
 
 
-# ==========================================
-# 5. ERROR HANDLERS
-# ==========================================
-
 @app.errorhandler(404)
 def not_found(e):
     return render_template('base.html', content="Page not found"), 404
@@ -484,10 +583,6 @@ def server_error(e):
     logger.error(f"Server error: {e}")
     return "Internal server error", 500
 
-
-# ==========================================
-# 6. APPLICATION ENTRY
-# ==========================================
 
 if __name__ == '__main__':
     logger.info("Starting Noggin Web Dashboard")

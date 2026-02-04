@@ -81,10 +81,17 @@ body {
 }
 
 .app-header h1 {
-    font-size: 1.5rem;
+    font-size: 2 rem;
     font-weight: 700;
+    letter-spacing: 2px;
+    margin: 0;
+}
+.app-header h6 {
+    font-size: 1 rem;
+    font-weight: 300;
     letter-spacing: 0.5px;
     margin: 0;
+    color: #bbb;
 }
 
 /* ==========================================================================
@@ -683,4 +690,406 @@ code {
 
 .text-gs-slate {
     color: var(--gs-slate);
+}
+
+/* ==========================================================================
+   19. Inspection Detail Page
+   ========================================================================== */
+
+.inspection-detail-page {
+    max-width: 1400px;
+}
+
+.detail-header {
+    background-color: white;
+    border-bottom: 4px solid var(--gs-gold);
+    padding: 1.5rem 2rem;
+    margin: -1.5rem -1rem 2rem -1rem;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+}
+
+.detail-header .back-link {
+    color: var(--gs-slate-muted);
+    text-decoration: none;
+    font-size: 0.9rem;
+}
+
+.detail-header .back-link:hover {
+    color: var(--gs-gold-dark);
+}
+
+.detail-header .type-badge {
+    background-color: var(--gs-slate);
+    color: white;
+    font-size: 0.85rem;
+    padding: 0.35rem 0.75rem;
+    border-radius: 4px;
+    margin-bottom: 0.5rem;
+    display: inline-block;
+}
+
+.detail-header .detail-title {
+    font-size: 1.75rem;
+    font-weight: 700;
+    color: var(--gs-slate);
+    margin: 0.25rem 0 0 0;
+}
+
+.detail-header .detail-subtitle {
+    color: var(--gs-slate-muted);
+    font-size: 0.95rem;
+}
+
+/* Collapsible Sections */
+.collapsible-section .card-header-custom {
+    transition: background-color 0.2s;
+}
+
+.collapsible-section .card-header-custom:hover {
+    background-color: #eef0f2;
+}
+
+.collapse-icon {
+    transition: transform 0.3s ease;
+}
+
+.collapse-icon.rotated,
+[aria-expanded="false"] .collapse-icon {
+    transform: rotate(-90deg);
+}
+
+[aria-expanded="true"] .collapse-icon {
+    transform: rotate(0deg);
+}
+
+/* Raw JSON Display */
+.raw-json-display {
+    background-color: #1e2a38;
+    color: #ecf0f1;
+    padding: 1rem;
+    border-radius: 6px;
+    font-family: 'Consolas', 'Monaco', monospace;
+    font-size: 0.75rem;
+    line-height: 1.4;
+    max-height: 400px;
+    overflow: auto;
+    white-space: pre-wrap;
+    word-break: break-word;
+    margin: 0;
+}
+
+/* ==========================================================================
+   20. Attachment Grid & Thumbnails
+   ========================================================================== */
+
+.attachment-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+.attachment-card {
+    background-color: white;
+    border: 1px solid var(--gs-border);
+    border-radius: 8px;
+    padding: 0.75rem;
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.attachment-card:hover {
+    border-color: var(--gs-gold);
+    box-shadow: 0 2px 8px rgba(242, 196, 56, 0.15);
+}
+
+.attachment-card.has-thumbnail {
+    flex-wrap: wrap;
+}
+
+.attachment-thumbnail {
+    width: 100%;
+    max-width: 120px;
+    height: 90px;
+    background-color: var(--gs-bg-alt);
+    border-radius: 4px;
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+
+.attachment-thumbnail img {
+    max-width: 100%;
+    max-height: 100%;
+    object-fit: contain;
+}
+
+.attachment-info {
+    flex: 1;
+    min-width: 0;
+}
+
+.attachment-name {
+    font-weight: 600;
+    font-size: 0.875rem;
+    color: var(--gs-slate);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.attachment-meta {
+    font-size: 0.75rem;
+    color: var(--gs-slate-muted);
+    margin-top: 0.25rem;
+}
+
+.attachment-actions {
+    display: flex;
+    gap: 0.5rem;
+    flex-shrink: 0;
+}
+
+/* ==========================================================================
+   21. Print Styles
+   ========================================================================== */
+
+@media print {
+    /* Hide non-essential elements */
+    .app-header,
+    .app-nav,
+    .no-print,
+    .back-link,
+    .btn,
+    .attachment-actions,
+    .modal,
+    .collapsible-section.no-print {
+        display: none !important;
+    }
+
+    /* Reset page layout */
+    body {
+        background-color: white !important;
+        color: black !important;
+        font-size: 10pt;
+        line-height: 1.4;
+    }
+
+    .container {
+        max-width: 100% !important;
+        margin: 0 !important;
+        padding: 0 !important;
+    }
+
+    /* Header adjustments */
+    .detail-header {
+        background-color: white !important;
+        border-bottom: 2px solid black !important;
+        padding: 0.5rem 0 !important;
+        margin: 0 0 1rem 0 !important;
+        box-shadow: none !important;
+        page-break-after: avoid;
+    }
+
+    .detail-header .type-badge {
+        background-color: #333 !important;
+        color: white !important;
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+    }
+
+    .detail-title {
+        font-size: 14pt !important;
+    }
+
+    .detail-subtitle {
+        font-size: 10pt !important;
+    }
+
+    /* Cards */
+    .details-card {
+        box-shadow: none !important;
+        border: 1px solid #ccc !important;
+        margin-bottom: 0.75rem !important;
+        page-break-inside: avoid;
+    }
+
+    .card-header-custom {
+        background-color: #f0f0f0 !important;
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+        padding: 0.5rem 0.75rem !important;
+        font-size: 10pt !important;
+    }
+
+    .card-body-custom {
+        padding: 0.5rem 0.75rem !important;
+    }
+
+    /* Fields */
+    .field-row {
+        padding: 0.35rem 0 !important;
+        font-size: 9pt;
+    }
+
+    .field-label {
+        width: 35% !important;
+        font-size: 9pt;
+    }
+
+    .field-value {
+        width: 65% !important;
+        font-size: 9pt;
+    }
+
+    /* Badges - ensure colors print */
+    .badge {
+        border: 1px solid #999 !important;
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+    }
+
+    .badge.bg-success {
+        background-color: #d4edda !important;
+        color: #155724 !important;
+    }
+
+    .badge.bg-secondary {
+        background-color: #e2e3e5 !important;
+        color: #383d41 !important;
+    }
+
+    /* Two column layout becomes single column */
+    .row {
+        display: block !important;
+    }
+
+    .col-lg-8,
+    .col-lg-4 {
+        width: 100% !important;
+        max-width: 100% !important;
+        flex: none !important;
+    }
+
+    /* Collapsed sections should expand for print */
+    .collapse {
+        display: block !important;
+        height: auto !important;
+    }
+
+    /* Attachments section in print - show list only */
+    .attachment-grid {
+        display: block !important;
+    }
+
+    .attachment-card {
+        border: none !important;
+        padding: 0.25rem 0 !important;
+        box-shadow: none !important;
+    }
+
+    .attachment-thumbnail {
+        display: none !important;
+    }
+
+    /* Print images section - only visible in print */
+    .print-images-section {
+        display: block !important;
+        page-break-before: always;
+    }
+
+    .print-section-title {
+        font-size: 12pt;
+        font-weight: bold;
+        margin-bottom: 1rem;
+        padding-bottom: 0.5rem;
+        border-bottom: 1px solid #ccc;
+    }
+
+    .print-image-container {
+        page-break-inside: avoid;
+        margin-bottom: 1.5rem;
+        text-align: center;
+    }
+
+    .print-image {
+        max-width: 100%;
+        max-height: 500px;
+        border: 1px solid #ccc;
+    }
+
+    .print-image-caption {
+        font-size: 9pt;
+        color: #666;
+        margin-top: 0.5rem;
+        font-style: italic;
+    }
+
+    /* Page breaks */
+    h2, h3 {
+        page-break-after: avoid;
+    }
+
+    /* URLs */
+    a[href]:after {
+        content: none !important;
+    }
+}
+
+/* Hide print-only section on screen */
+@media screen {
+    .print-images-section {
+        display: none;
+    }
+}
+
+/* NOBBIE BRANDING */
+.nobbie-brand-container {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+}
+
+.nobbie-brand {
+    font-family: "Arial Black", "Arial Bold", Gadget, sans-serif;
+    font-weight: 900;
+    font-style: italic;
+    font-size: 2.2rem;
+    color: var(--gs-gold);
+    text-transform: uppercase;
+    letter-spacing: -1px;
+    line-height: 1;
+    /* Create a slight outline effect to pop against the dark header */
+    text-shadow: 2px 2px 0px #000;
+    margin-bottom: 4px;
+}
+
+.nobbie-tagline {
+    font-family: Arial, sans-serif;
+    color: #fff;
+    font-size: 0.75rem;
+    font-weight: bold;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    border-top: 2px solid var(--gs-gold);
+    border-bottom: 2px solid var(--gs-gold);
+    padding: 2px 8px;
+    width: 100%;
+    text-align: center;
+    background-color: rgba(0,0,0,0.2);
+}
+
+.anti-noggin-badge {
+    font-size: 0.7rem;
+    background: #dc3545; /* Red for 'Alert' */
+    color: white;
+    padding: 2px 6px;
+    border-radius: 4px;
+    margin-left: 10px;
+    font-style: normal;
+    vertical-align: middle;
+    letter-spacing: 0.5px;
 }
