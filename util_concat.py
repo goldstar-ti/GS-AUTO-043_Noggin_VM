@@ -1,7 +1,10 @@
+# JOIN FILES INTO A SINGLE MARKDOWN
+# REPLACES REPO-MIX
+
 import os
 import datetime
 
-def prepare_python_for_notebooklm(source_folder, output_filename):
+def concat_files(source_folder, output_filename):
     """Combines python files into a single, formatted markdown file."""
     combined_content = "# Python Codebase\n\n"
 
@@ -18,11 +21,11 @@ def prepare_python_for_notebooklm(source_folder, output_filename):
                 with open(file_path, "r", encoding="utf-8") as f:
                     content = f.read()
                     print(f"Processing file: {file_path} (size: {len(content)} char)\n")
-                    # exclude node_modules and .git directories
-                    if "node_modules" in file_path or ".git" in file_path or ".venv" in file_path:
-                        print(f"Skipping file: {file_path} (excluded directory)\n")
-                        skipped_files.append(file_path)
-                        continue
+                    # # exclude node_modules and .git directories
+                    # if "node_modules" in file_path or ".git" in file_path or ".venv" in file_path:
+                    #     print(f"Skipping file: {file_path} (excluded directory)\n")
+                    #     skipped_files.append(file_path)
+                    #     continue
                     combined_content += f"## FILE: {os.path.abspath(file_path)}\n```python\n{content}\n```\n\n"
                     combined_file_list.append(file_path)
 
@@ -33,10 +36,10 @@ def prepare_python_for_notebooklm(source_folder, output_filename):
 
     with open(output_filename, "w", encoding="utf-8") as f:
         f.write(combined_content)
-    print(f"Prepared file saved as: {output_filename}")
-    print("Skipped files:")
-    for f in skipped_files:
-        print(f"  {f}")
+    print(f"Output: {output_filename}")
+    # print("Skipped:")
+    # for f in skipped_files:
+    #     print(f"  {f}")
     print("Combined files:")
     for f in combined_file_list:
         print(f"  {f}")
@@ -44,4 +47,4 @@ def prepare_python_for_notebooklm(source_folder, output_filename):
 timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
 source_folder = "./" 
 output_filename = f"./.repomix/notebooklm_source_{timestamp}.md"
-prepare_python_for_notebooklm(source_folder, output_filename)
+concat_files(source_folder, output_filename)

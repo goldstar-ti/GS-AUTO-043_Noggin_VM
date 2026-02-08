@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """
-Noggin Continuous Processor
+NOBBIE  Continuous Processor
 
-Runs noggin_processor.py in a continuous loop with configurable sleep intervals.
+Runs noggin_processor_unified.py in a continuous loop with configurable sleep intervals.
 Includes CSV import and hash resolution cycles.
 """
 
@@ -17,10 +17,10 @@ from pathlib import Path
 from typing import Dict, Any
 
 from common import ConfigLoader, LoggerManager, DatabaseConnectionManager, CSVImporter, HashManager
-from sftp_download_tips import run_sftp_download
+from sys.util_import_tips_sftp import run_sftp_download
 
-logger: logging.Logger = logging.getLogger(__name__)
-
+# Logger will be initialized after LoggerManager.configure_application_logger() is called in main()
+logger: logging.Logger = None
 shutdown_requested: bool = False
 
 
@@ -33,7 +33,7 @@ def signal_handler(signum: int, frame: Any) -> None:
 
 def run_single_processing_cycle(config: ConfigLoader, db_manager: DatabaseConnectionManager) -> Dict[str, int]:
     """
-    Execute one processing cycle by running noggin_processor.py
+    Execute one processing cycle by running noggin_processor_unified.py
     
     Args:
         config: ConfigLoader instance
@@ -212,14 +212,11 @@ def run_sftp_download_cycle(config, db_manager) -> dict:
 def main() -> int:
     """Main entry point for continuous processor"""
 
-    global shutdown_requested
+    global shutdown_requested, logger
     shutdown_requested = False
-
-    # def signal_handler(signum: int, frame: Any) -> None:
-    #     """Handle shutdown signals gracefully"""
-    #     # nonlocal shutdown_requested
-    #     logger.info(f"Received signal {signum}. Initiating graceful shutdown...")
-    #     shutdown_requested = True
+    
+    # Initialize logger after configuration
+    logger = logging.getLogger(__name__)
     
     signal.signal(signal.SIGINT, signal_handler)
     signal.signal(signal.SIGTERM, signal_handler)
