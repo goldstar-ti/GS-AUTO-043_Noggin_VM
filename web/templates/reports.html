@@ -1,0 +1,139 @@
+{% extends "base.html" %}
+
+{% block title %}Reports - Noggin Processor{% endblock %}
+
+{% block content %}
+<h2 class="mb-4">Reports</h2>
+
+<div class="row">
+    <div class="col-md-6 col-lg-4 mb-4">
+        <div class="card h-100 report-card">
+            <div class="card-body">
+                <div class="report-icon">
+                    <i class="fas fa-chart-bar"></i>
+                </div>
+                <h5 class="card-title">Processing Summary</h5>
+                <p class="card-text text-muted">Daily/weekly/monthly counts by object type and status with trend analysis</p>
+                <a href="{{ url_for('report_processing_summary') }}" class="btn btn-primary">View Report</a>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-6 col-lg-4 mb-4">
+        <div class="card h-100 report-card">
+            <div class="card-body">
+                <div class="report-icon">
+                    <i class="fas fa-truck"></i>
+                </div>
+                <h5 class="card-title">Vehicle Activity</h5>
+                <p class="card-text text-muted">All records for a selected vehicle over a date range with attachment counts</p>
+                <a href="{{ url_for('report_vehicle_activity') }}" class="btn btn-primary">View Report</a>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-6 col-lg-4 mb-4">
+        <div class="card h-100 report-card">
+            <div class="card-body">
+                <div class="report-icon">
+                    <i class="fas fa-trailer"></i>
+                </div>
+                <h5 class="card-title">Trailer Activity</h5>
+                <p class="card-text text-muted">Records grouped by trailer over a specified date range</p>
+                <a href="{{ url_for('report_trailer_activity') }}" class="btn btn-primary">View Report</a>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-6 col-lg-4 mb-4">
+        <div class="card h-100 report-card">
+            <div class="card-body">
+                <div class="report-icon">
+                    <i class="fas fa-users"></i>
+                </div>
+                <h5 class="card-title">Team/Department Performance</h5>
+                <p class="card-text text-muted">Record counts by team/department with completion rates and unique counts</p>
+                <a href="{{ url_for('report_team_performance') }}" class="btn btn-primary">View Report</a>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-6 col-lg-4 mb-4">
+        <div class="card h-100 report-card">
+            <div class="card-body">
+                <div class="report-icon">
+                    <i class="fas fa-user"></i>
+                </div>
+                <h5 class="card-title">Driver Activity</h5>
+                <p class="card-text text-muted">Records grouped by driver with activity summary</p>
+                <a href="{{ url_for('report_driver_activity') }}" class="btn btn-primary">View Report</a>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-6 col-lg-4 mb-4">
+        <div class="card h-100 report-card">
+            <div class="card-body">
+                <div class="report-icon">
+                    <i class="fas fa-paperclip"></i>
+                </div>
+                <h5 class="card-title">Attachment Status</h5>
+                <p class="card-text text-muted">Records with missing or incomplete attachments</p>
+                <a href="{{ url_for('report_attachment_status') }}" class="btn btn-primary">View Report</a>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-6 col-lg-4 mb-4">
+        <div class="card h-100 report-card">
+            <div class="card-body">
+                <div class="report-icon">
+                    <i class="fas fa-question-circle"></i>
+                </div>
+                <h5 class="card-title">Unknown Hash Summary</h5>
+                <p class="card-text text-muted">Records containing unresolved hashes grouped by hash type</p>
+                <a href="{{ url_for('report_unknown_hashes') }}" class="btn btn-primary">View Report</a>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-6 col-lg-4 mb-4">
+        <div class="card h-100 report-card">
+            <div class="card-body">
+                <div class="report-icon">
+                    <i class="fas fa-exclamation-triangle"></i>
+                </div>
+                <h5 class="card-title">Failed Processing</h5>
+                <p class="card-text text-muted">Records with failed/error status including retry counts</p>
+                <a href="{{ url_for('report_failed_processing') }}" class="btn btn-primary">View Report</a>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-6 col-lg-4 mb-4">
+        <div class="card h-100 report-card">
+            <div class="card-body">
+                <div class="report-icon">
+                    <i class="fas fa-clipboard-check"></i>
+                </div>
+                <h5 class="card-title">Compliance Summary</h5>
+                <p class="card-text text-muted">Pass/fail rates for LCD/LCS compliance checks</p>
+                <a href="{{ url_for('report_compliance_summary') }}" class="btn btn-primary">View Report</a>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-6 col-lg-4 mb-4">
+        <div class="card h-100 report-card">
+            <div class="card-body">
+                <div class="report-icon">
+                    <i class="fas fa-file-export"></i>
+                </div>
+                <h5 class="card-title">Export Records</h5>
+                <p class="card-text text-muted">Export filtered records to CSV for external analysis</p>
+                <a href="{{ url_for('records') }}" class="btn btn-primary">Go to Records</a>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

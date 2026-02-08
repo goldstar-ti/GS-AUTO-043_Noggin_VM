@@ -1,0 +1,97 @@
+{% extends "base.html" %}
+
+{% block title %}Trailer Activity - Reports{% endblock %}
+
+{% block content %}
+<div class="mb-4">
+    <a href="{{ url_for('reports') }}" class="back-link">
+        <i class="fas fa-arrow-left me-1"></i> Back to Reports
+    </a>
+</div>
+
+<h2 class="mb-4">Trailer Activity Report</h2>
+
+<div class="card mb-4">
+    <div class="card-body">
+        <form method="get" class="row g-3">
+            <div class="col-md-4">
+                <label for="trailer" class="form-label">Trailer</label>
+                <input list="trailers" name="trailer" id="trailer" class="form-control" 
+                       placeholder="Select or type trailer" value="{{ trailer }}">
+                <datalist id="trailers">
+                    {% for t in options.trailers %}
+                        <option value="{{ t }}">
+                    {% endfor %}
+                </datalist>
+            </div>
+            <div class="col-md-3">
+                <label for="date_from" class="form-label">From Date</label>
+                <input type="date" name="date_from" id="date_from" class="form-control" value="{{ date_from }}">
+            </div>
+            <div class="col-md-3">
+                <label for="date_to" class="form-label">To Date</label>
+                <input type="date" name="date_to" id="date_to" class="form-control" value="{{ date_to }}">
+            </div>
+            <div class="col-md-2 d-flex align-items-end">
+                <button type="submit" class="btn btn-primary w-100">Search</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+{% if trailer %}
+<div class="card">
+    <div class="card-header">
+        Records for trailer: <strong>{{ trailer }}</strong> ({{ records|length }} results)
+    </div>
+    <div class="card-body">
+        <div class="table-responsive">
+            <table class="table table-hover mb-0">
+                <thead>
+                    <tr>
+                        <th>Reference</th>
+                        <th>Type</th>
+                        <th>Date</th>
+                        <th>Driver</th>
+                        <th>Vehicle</th>
+                        <th>Trailers</th>
+                        <th>Team</th>
+                        <th>Status</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for record in records %}
+                    <tr>
+                        <td>{{ record.noggin_reference or record.tip[:12] }}</td>
+                        <td><small>{{ record.object_type }}</small></td>
+                        <td>{{ record.inspection_date.strftime('%d %b %Y') if record.inspection_date else '-' }}</td>
+                        <td>{{ record.driver or '-' }}</td>
+                        <td>{{ record.vehicle or '-' }}</td>
+                        <td>
+                            {{ record.trailer or '' }}
+                            {% if record.trailer2 %}, {{ record.trailer2 }}{% endif %}
+                            {% if record.trailer3 %}, {{ record.trailer3 }}{% endif %}
+                        </td>
+                        <td>{{ record.team or '-' }}</td>
+                        <td><span class="badge badge-status-{{ record.processing_status }}">{{ record.processing_status }}</span></td>
+                        <td>
+                            <a href="{{ url_for('record_detail', tip=record.tip) }}" class="btn btn-sm btn-primary">View</a>
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="9" class="text-center py-4">No records found for this trailer</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% else %}
+<div class="alert alert-info">
+    Select a trailer above to view activity records
+</div>
+{% endif %}
+{% endblock %}

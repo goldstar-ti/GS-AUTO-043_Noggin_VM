@@ -1,0 +1,72 @@
+{% extends "base.html" %}
+
+{% block title %}Team Performance - Reports{% endblock %}
+
+{% block content %}
+<div class="mb-4">
+    <a href="{{ url_for('reports') }}" class="back-link">
+        <i class="fas fa-arrow-left me-1"></i> Back to Reports
+    </a>
+</div>
+
+<h2 class="mb-4">Team/Department Performance</h2>
+
+<div class="card">
+    <div class="card-header">
+        Performance by Team and Department
+    </div>
+    <div class="card-body">
+        <div class="table-responsive">
+            <table class="table table-hover mb-0">
+                <thead>
+                    <tr>
+                        <th>Team</th>
+                        <th>Department</th>
+                        <th>Total Records</th>
+                        <th>Complete</th>
+                        <th>Failed</th>
+                        <th>Pending</th>
+                        <th>Completion Rate</th>
+                        <th>Unique Vehicles</th>
+                        <th>Unique Drivers</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in team_stats %}
+                    <tr>
+                        <td><strong>{{ item.team or '-' }}</strong></td>
+                        <td>
+                            {% if item.department and item.department != item.team %}
+                                {{ item.department }}
+                            {% else %}
+                                <span class="text-muted">-</span>
+                            {% endif %}
+                        </td>
+                        <td>{{ item.total_records }}</td>
+                        <td><span class="text-success">{{ item.complete or 0 }}</span></td>
+                        <td><span class="text-danger">{{ item.failed or 0 }}</span></td>
+                        <td><span class="text-info">{{ item.pending or 0 }}</span></td>
+                        <td>
+                            {% set rate = ((item.complete or 0) / item.total_records * 100) if item.total_records > 0 else 0 %}
+                            {% if rate >= 95 %}
+                                <span class="badge bg-success">{{ "%.1f"|format(rate) }}%</span>
+                            {% elif rate >= 80 %}
+                                <span class="badge bg-warning text-dark">{{ "%.1f"|format(rate) }}%</span>
+                            {% else %}
+                                <span class="badge bg-danger">{{ "%.1f"|format(rate) }}%</span>
+                            {% endif %}
+                        </td>
+                        <td>{{ item.unique_vehicles or 0 }}</td>
+                        <td>{{ item.unique_drivers or 0 }}</td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="9" class="text-center py-4">No team data available</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,198 @@
+{% extends "base.html" %}
+
+{% block title %}Records - Noggin Processor{% endblock %}
+
+{% block content %}
+<div class="filter-panel">
+    <h3>Search and Filter</h3>
+    <form method="get" action="{{ url_for('records') }}">
+        
+        <div class="filter-grid">
+            <div class="input-wrapper">
+                <label for="object_type">Object Type</label>
+                <select name="object_type" id="object_type">
+                    <option value="">All Types</option>
+                    {% for type in options.object_types %}
+                        <option value="{{ type }}" {% if filters.object_type == type %}selected{% endif %}>
+                            {{ type }}
+                        </option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div class="input-wrapper">
+                <label for="status">Status</label>
+                <select name="status" id="status">
+                    <option value="">All Statuses</option>
+                    <option value="complete" {% if filters.status == 'complete' %}selected{% endif %}>Complete</option>
+                    <option value="pending" {% if filters.status == 'pending' %}selected{% endif %}>Pending</option>
+                    <option value="failed" {% if filters.status == 'failed' %}selected{% endif %}>Failed</option>
+                    <option value="csv_imported" {% if filters.status == 'csv_imported' %}selected{% endif %}>CSV Imported</option>
+                </select>
+            </div>
+
+            <div class="input-wrapper">
+                <label for="vehicle">Vehicle</label>
+                <input list="vehicles" name="vehicle" id="vehicle" placeholder="e.g. MB26" value="{{ filters.vehicle or '' }}">
+                <datalist id="vehicles">
+                    {% for v in options.vehicles %}
+                        <option value="{{ v }}">
+                    {% endfor %}
+                </datalist>
+            </div>
+
+            <div class="input-wrapper">
+                <label for="trailer">Trailer</label>
+                <input list="trailers" name="trailer" id="trailer" placeholder="e.g. T107" value="{{ filters.trailer or '' }}">
+                <datalist id="trailers">
+                    {% for t in options.trailers %}
+                        <option value="{{ t }}">
+                    {% endfor %}
+                </datalist>
+            </div>
+
+            <div class="input-wrapper">
+                <label for="team">Team</label>
+                <input list="teams" name="team" id="team" placeholder="Select team" value="{{ filters.team or '' }}">
+                <datalist id="teams">
+                    {% for t in options.teams %}
+                        <option value="{{ t }}">
+                    {% endfor %}
+                </datalist>
+            </div>
+
+            <div class="input-wrapper">
+                <label for="department">Department</label>
+                <input list="departments" name="department" id="department" placeholder="Select department" value="{{ filters.department or '' }}">
+                <datalist id="departments">
+                    {% for d in options.departments %}
+                        <option value="{{ d }}">
+                    {% endfor %}
+                </datalist>
+            </div>
+
+            <div class="input-wrapper">
+                <label for="driver">Driver</label>
+                <input list="drivers" name="driver" id="driver" placeholder="Select driver" value="{{ filters.driver or '' }}">
+                <datalist id="drivers">
+                    {% for d in options.drivers %}
+                        <option value="{{ d }}">
+                    {% endfor %}
+                </datalist>
+            </div>
+
+            <fieldset class="date-frame">
+                <legend>Date Range</legend>
+                <div class="date-inputs">
+                    <div class="input-wrapper">
+                        <label for="date_from">From</label>
+                        <input type="date" name="date_from" id="date_from" value="{{ filters.date_from or '' }}">
+                    </div>
+                    <div class="input-wrapper">
+                        <label for="date_to">To</label>
+                        <input type="date" name="date_to" id="date_to" value="{{ filters.date_to or '' }}">
+                    </div>
+                </div>
+            </fieldset>
+        </div>
+
+        <div class="search-row">
+            <div class="input-wrapper">
+                <label for="search">Keyword Search (Reference, Team, Department, Vehicle)</label>
+                <input type="text" name="search" id="search" placeholder="Type to search..." value="{{ filters.search_text or '' }}">
+            </div>
+        </div>
+
+        <div class="filter-actions">
+            <a href="{{ url_for('records') }}" class="btn btn-secondary">Reset Filters</a>
+            <button type="submit" class="btn btn-primary">Apply Filters</button>
+        </div>
+    </form>
+</div>
+
+<div class="card">
+    <div class="card-body">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <h3 class="h5 mb-0">Results ({{ total }})</h3>
+            <div class="d-flex gap-2 align-items-center">
+                {% if filters.object_type or filters.vehicle or filters.date_from or filters.status or filters.search_text or filters.team or filters.department or filters.driver or filters.trailer %}
+                    <span class="badge badge-status-pending">Filters Active</span>
+                {% endif %}
+                <a href="{{ url_for('report_export', **filters) }}" class="btn btn-sm btn-outline-secondary">
+                    <i class="fas fa-download me-1"></i> Export CSV
+                </a>
+            </div>
+        </div>
+
+        <div class="table-responsive">
+            <table class="table table-hover mb-0">
+                <thead>
+                    <tr>
+                        <th>Type</th>
+                        <th>Reference / ID</th>
+                        <th>Date</th>
+                        <th>Vehicle</th>
+                        <th>Trailer</th>
+                        <th>Team/Dept</th>
+                        <th>Status</th>
+                        <th>Attachments</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for record in records %}
+                    <tr>
+                        <td><strong>{{ record.object_type }}</strong></td>
+                        <td>{{ record.noggin_reference or record.tip }}</td>
+                        <td>{{ record.inspection_date.strftime('%d-%m-%Y') if record.inspection_date else 'N/A' }}</td>
+                        <td>{{ record.vehicle or '-' }}</td>
+                        <td>{{ record.trailer or '-' }}</td>
+                        <td>
+                            <small>{{ record.team or '' }}</small>
+                            {% if record.department and record.department != record.team %}
+                            <br><small class="text-muted">{{ record.department }}</small>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <span class="badge badge-status-{{ record.processing_status }}">{{ record.processing_status }}</span>
+                        </td>
+                        <td>{{ record.completed_attachment_count or 0 }} / {{ record.total_attachments or 0 }}</td>
+                        <td>
+                            <a href="{{ url_for('record_detail', tip=record.tip) }}" class="btn btn-primary btn-sm">View</a>
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="9" class="text-center py-4">
+                            No records found matching your criteria.
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        
+        {% if total_pages > 1 %}
+        <nav class="mt-3" aria-label="Page navigation">
+            <ul class="pagination justify-content-center mb-0">
+                {% if page > 1 %}
+                    <li class="page-item">
+                        <a class="page-link" href="{{ url_for('records', page=page-1, object_type=filters.object_type, status=filters.status, vehicle=filters.vehicle, trailer=filters.trailer, team=filters.team, department=filters.department, driver=filters.driver, date_from=filters.date_from, date_to=filters.date_to, search=filters.search_text) }}">Previous</a>
+                    </li>
+                {% endif %}
+                
+                <li class="page-item disabled">
+                    <span class="page-link">Page {{ page }} of {{ total_pages }}</span>
+                </li>
+                
+                {% if page < total_pages %}
+                    <li class="page-item">
+                        <a class="page-link" href="{{ url_for('records', page=page+1, object_type=filters.object_type, status=filters.status, vehicle=filters.vehicle, trailer=filters.trailer, team=filters.team, department=filters.department, driver=filters.driver, date_from=filters.date_from, date_to=filters.date_to, search=filters.search_text) }}">Next</a>
+                    </li>
+                {% endif %}
+            </ul>
+        </nav>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

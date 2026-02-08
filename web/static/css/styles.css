@@ -2,6 +2,7 @@
 /**
  * Noggin Data Processor - Consolidated Stylesheet
  * Uses Bootstrap 5 with GoldStar brand colour overrides
+ * Supports light and dark themes
  */
 
 /* ==========================================================================
@@ -15,11 +16,40 @@
     --gs-slate: #2c3e50;
     --gs-slate-light: #5a6c7d;
     --gs-slate-muted: #7f8c8d;
+}
+
+/* Light theme (default) */
+.theme-light, [data-theme="light"] {
     --gs-bg: #f1efe7;
     --gs-bg-alt: #f8f9fa;
+    --gs-bg-card: #ffffff;
     --gs-text: #212529;
+    --gs-text-muted: #6c757d;
     --gs-border: #dee2e6;
     --gs-border-light: #eee;
+    --gs-input-bg: #ffffff;
+    --gs-input-border: #ddd;
+    --gs-table-stripe: #fdfbf0;
+    --gs-code-bg: #f1f1f1;
+    --gs-log-bg: #1e2a38;
+    --gs-log-text: #ecf0f1;
+}
+
+/* Dark theme */
+.theme-dark, [data-theme="dark"] {
+    --gs-bg: #1a1d21;
+    --gs-bg-alt: #22262b;
+    --gs-bg-card: #2a2e33;
+    --gs-text: #e4e6eb;
+    --gs-text-muted: #a0a4a8;
+    --gs-border: #3d4249;
+    --gs-border-light: #333840;
+    --gs-input-bg: #22262b;
+    --gs-input-border: #3d4249;
+    --gs-table-stripe: #252a2f;
+    --gs-code-bg: #22262b;
+    --gs-log-bg: #0d1117;
+    --gs-log-text: #c9d1d9;
 }
 
 /* ==========================================================================
@@ -52,10 +82,22 @@
     color: #333;
 }
 
+.theme-dark .btn-secondary {
+    background-color: #3d4249;
+    border-color: #3d4249;
+    color: #e4e6eb;
+}
+
 .btn-secondary:hover {
     background-color: #d0d0d0;
     border-color: #d0d0d0;
     color: #333;
+}
+
+.theme-dark .btn-secondary:hover {
+    background-color: #4a4f57;
+    border-color: #4a4f57;
+    color: #e4e6eb;
 }
 
 /* ==========================================================================
@@ -66,6 +108,7 @@ body {
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
     background-color: var(--gs-bg);
     color: var(--gs-text);
+    transition: background-color 0.2s, color 0.2s;
 }
 
 /* ==========================================================================
@@ -81,17 +124,33 @@ body {
 }
 
 .app-header h1 {
-    font-size: 2 rem;
+    font-size: 2rem;
     font-weight: 700;
     letter-spacing: 2px;
     margin: 0;
 }
+
 .app-header h6 {
-    font-size: 1 rem;
+    font-size: 1rem;
     font-weight: 300;
     letter-spacing: 0.5px;
     margin: 0;
     color: #bbb;
+}
+
+/* Theme Toggle */
+.theme-toggle {
+    color: var(--gs-gold);
+    font-size: 1.5rem;
+    text-decoration: none;
+    padding: 0.5rem;
+    border-radius: 50%;
+    transition: background-color 0.2s;
+}
+
+.theme-toggle:hover {
+    background-color: rgba(255, 255, 255, 0.1);
+    color: var(--gs-gold);
 }
 
 /* ==========================================================================
@@ -132,13 +191,14 @@ body {
     border-radius: 8px;
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
     margin-bottom: 1.5rem;
+    background-color: var(--gs-bg-card);
 }
 
 .card-header {
     background-color: var(--gs-bg-alt);
     border-bottom: 1px solid var(--gs-border-light);
     font-weight: 600;
-    color: var(--gs-slate);
+    color: var(--gs-text);
 }
 
 .card-accent-top {
@@ -157,23 +217,23 @@ body {
 }
 
 .stat-card {
-    background: white;
+    background: var(--gs-bg-card);
     padding: 1.5rem;
     border-radius: 8px;
     text-align: center;
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-    border-bottom: 4px solid #ddd;
+    border-bottom: 4px solid var(--gs-border);
 }
 
 .stat-card .stat-number {
     font-size: 2rem;
     font-weight: bold;
-    color: var(--gs-slate);
+    color: var(--gs-text);
     cursor: default;
 }
 
 .stat-card .stat-label {
-    color: var(--gs-slate-muted);
+    color: var(--gs-text-muted);
     font-size: 0.85rem;
     text-transform: uppercase;
     letter-spacing: 1px;
@@ -190,6 +250,10 @@ body {
    8. Tables
    ========================================================================== */
 
+.table {
+    color: var(--gs-text);
+}
+
 .table > thead {
     background-color: var(--gs-slate-light);
     color: white;
@@ -201,11 +265,12 @@ body {
 }
 
 .table > tbody > tr:hover {
-    background-color: #fdfbf0;
+    background-color: var(--gs-table-stripe);
 }
 
 .table td {
     vertical-align: middle;
+    border-color: var(--gs-border-light);
 }
 
 /* ==========================================================================
@@ -243,11 +308,12 @@ body {
    ========================================================================== */
 
 code {
-    background-color: #f1f1f1;
+    background-color: var(--gs-code-bg);
     padding: 2px 6px;
     border-radius: 3px;
     font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
     font-size: 0.9em;
+    color: var(--gs-text);
 }
 
 /* ==========================================================================
@@ -261,28 +327,28 @@ code {
 
 .service-tabs .nav-link {
     padding: 1rem 2rem;
-    background-color: #e9ecef;
+    background-color: var(--gs-bg-alt);
     border: none;
     font-weight: 600;
-    color: var(--gs-slate);
+    color: var(--gs-text);
     border-radius: 8px 8px 0 0;
     margin-right: 4px;
     transition: all 0.2s;
 }
 
 .service-tabs .nav-link:hover {
-    background-color: #dee2e6;
+    background-color: var(--gs-border);
 }
 
 .service-tabs .nav-link.active {
-    background-color: white;
-    color: var(--gs-slate);
-    border-bottom: 2px solid white;
+    background-color: var(--gs-bg-card);
+    color: var(--gs-text);
+    border-bottom: 2px solid var(--gs-bg-card);
     margin-bottom: -2px;
 }
 
 .service-tab-content {
-    background-color: white;
+    background-color: var(--gs-bg-card);
     padding: 1.5rem;
     border-radius: 0 8px 8px 8px;
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
@@ -307,8 +373,8 @@ code {
 
 /* Log Container */
 .log-container {
-    background-color: #1e2a38;
-    color: #ecf0f1;
+    background-color: var(--gs-log-bg);
+    color: var(--gs-log-text);
     padding: 1rem;
     border-radius: 6px;
     font-family: 'Consolas', 'Monaco', monospace;
@@ -345,24 +411,24 @@ code {
 .commands-card h5 {
     margin: 0 0 0.75rem 0;
     font-size: 0.95rem;
-    color: var(--gs-slate);
+    color: var(--gs-text);
 }
 
 .commands-card code {
     display: block;
     margin: 0.4rem 0;
     padding: 0.3rem 0.6rem;
-    background-color: white;
+    background-color: var(--gs-bg-card);
     border-radius: 4px;
     font-size: 0.85rem;
 }
 
 /* ==========================================================================
-   13. Inspections Page - Filter Panel
+   13. Records Page - Filter Panel
    ========================================================================== */
 
 .filter-panel {
-    background-color: white;
+    background-color: var(--gs-bg-card);
     padding: 1.5rem;
     border-radius: 8px;
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
@@ -372,26 +438,30 @@ code {
 
 .filter-panel h3 {
     margin-bottom: 1.5rem;
-    color: var(--gs-slate);
+    color: var(--gs-text);
 }
 
-.filter-logic-row {
+/* New filter grid - natural reflow */
+.filter-grid {
     display: flex;
     flex-wrap: wrap;
-    gap: 1.5rem;
+    gap: 1rem;
     margin-bottom: 1.5rem;
-    align-items: stretch;
 }
 
-.logic-group {
-    display: flex;
-    gap: 1rem;
-    flex: 1;
-    min-width: 250px;
+.filter-grid > .input-wrapper {
+    flex: 1 1 180px;
+    min-width: 150px;
+    max-width: 250px;
+}
+
+.filter-grid > .date-frame {
+    flex: 1 1 320px;
+    min-width: 280px;
+    max-width: 400px;
 }
 
 .input-wrapper {
-    flex: 1;
     display: flex;
     flex-direction: column;
 }
@@ -399,7 +469,7 @@ code {
 .input-wrapper label {
     font-size: 0.8rem;
     font-weight: 600;
-    color: var(--gs-slate);
+    color: var(--gs-text);
     margin-bottom: 0.4rem;
     text-transform: uppercase;
     letter-spacing: 0.5px;
@@ -408,11 +478,13 @@ code {
 .input-wrapper input,
 .input-wrapper select {
     padding: 0.6rem;
-    border: 1px solid #ddd;
+    border: 1px solid var(--gs-input-border);
     border-radius: 4px;
     font-size: 0.95rem;
     width: 100%;
     height: 40px;
+    background-color: var(--gs-input-bg);
+    color: var(--gs-text);
 }
 
 .input-wrapper input:focus,
@@ -423,20 +495,26 @@ code {
 }
 
 .date-frame {
-    border: 1px solid #e0e0e0;
+    border: 1px solid var(--gs-border);
     border-radius: 6px;
     padding: 0.5rem 1rem 1rem 1rem;
-    display: flex;
-    gap: 1rem;
-    flex: 1.2;
-    min-width: 300px;
 }
 
 .date-frame legend {
     font-size: 0.8rem;
     font-weight: 600;
-    color: var(--gs-slate);
+    color: var(--gs-text);
     padding: 0 0.5rem;
+}
+
+.date-frame .date-inputs {
+    display: flex;
+    gap: 1rem;
+    flex-wrap: wrap;
+}
+
+.date-frame .date-inputs .input-wrapper {
+    flex: 1 1 120px;
 }
 
 .search-row {
@@ -448,6 +526,7 @@ code {
 .filter-actions {
     display: flex;
     justify-content: flex-end;
+    align-items: center;
     gap: 0.8rem;
     margin-top: 1.5rem;
 }
@@ -456,14 +535,17 @@ code {
     height: 40px;
     padding: 0 1.5rem;
     font-size: 0.95rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
 }
 
 /* ==========================================================================
-   14. Inspection Detail Page
+   14. Record Detail Page
    ========================================================================== */
 
 .header-banner {
-    background-color: white;
+    background-color: var(--gs-bg-card);
     border-bottom: 4px solid var(--gs-gold);
     padding: 25px 0;
     margin-bottom: 30px;
@@ -472,7 +554,7 @@ code {
 
 .header-title {
     font-weight: 700;
-    color: var(--gs-slate);
+    color: var(--gs-text);
 }
 
 .header-badge {
@@ -483,7 +565,7 @@ code {
 }
 
 .details-card {
-    background-color: white;
+    background-color: var(--gs-bg-card);
     border: none;
     border-radius: 12px;
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
@@ -497,7 +579,7 @@ code {
     padding: 15px 25px;
     border-bottom: 1px solid var(--gs-border-light);
     font-weight: 600;
-    color: var(--gs-slate);
+    color: var(--gs-text);
     font-size: 1.1rem;
 }
 
@@ -511,7 +593,7 @@ code {
 
 .field-row {
     padding: 12px 0;
-    border-bottom: 1px solid #f1f1f1;
+    border-bottom: 1px solid var(--gs-border-light);
     display: flex;
     align-items: flex-start;
 }
@@ -522,7 +604,7 @@ code {
 
 .field-label {
     font-weight: 600;
-    color: #6c757d;
+    color: var(--gs-text-muted);
     width: 40%;
     padding-right: 15px;
     font-size: 0.95rem;
@@ -542,8 +624,8 @@ code {
 }
 
 .attachment-item {
-    background-color: white;
-    border: 1px solid #e9ecef;
+    background-color: var(--gs-bg-card);
+    border: 1px solid var(--gs-border);
     border-radius: 8px;
     padding: 12px;
     margin-bottom: 10px;
@@ -562,12 +644,12 @@ code {
     background-color: var(--gs-bg-alt);
     border-radius: 4px;
     padding: 0.5rem;
-    color: var(--gs-slate-muted);
+    color: var(--gs-text-muted);
 }
 
 /* Modal Content */
 .modal-content-wrapper {
-    background-color: #e9ecef;
+    background-color: var(--gs-bg-alt);
     min-height: 300px;
     display: flex;
     align-items: center;
@@ -587,7 +669,7 @@ code {
 }
 
 .back-link {
-    color: var(--gs-slate-muted);
+    color: var(--gs-text-muted);
     text-decoration: none;
     font-size: 0.9rem;
 }
@@ -623,7 +705,7 @@ code {
     background-color: var(--gs-bg-alt);
     padding: 10px 15px;
     border-radius: 6px;
-    border: 1px solid #ddd;
+    border: 1px solid var(--gs-border);
     display: inline-flex;
     align-items: center;
     gap: 8px;
@@ -631,7 +713,7 @@ code {
 
 .object-type-pill .type-name {
     font-weight: bold;
-    color: #555;
+    color: var(--gs-text);
 }
 
 .object-type-pill .type-count {
@@ -647,8 +729,9 @@ code {
    ========================================================================== */
 
 .pagination .page-link {
-    color: var(--gs-slate);
-    border-color: #ddd;
+    color: var(--gs-text);
+    border-color: var(--gs-border);
+    background-color: var(--gs-bg-card);
 }
 
 .pagination .page-item.active .page-link {
@@ -669,7 +752,7 @@ code {
    ========================================================================== */
 
 .text-muted-custom {
-    color: var(--gs-slate-muted);
+    color: var(--gs-text-muted);
 }
 
 .cursor-default {
@@ -693,7 +776,7 @@ code {
 }
 
 /* ==========================================================================
-   19. Inspection Detail Page
+   19. Record Detail Page
    ========================================================================== */
 
 .inspection-detail-page {
@@ -701,7 +784,7 @@ code {
 }
 
 .detail-header {
-    background-color: white;
+    background-color: var(--gs-bg-card);
     border-bottom: 4px solid var(--gs-gold);
     padding: 1.5rem 2rem;
     margin: -1.5rem -1rem 2rem -1rem;
@@ -709,7 +792,7 @@ code {
 }
 
 .detail-header .back-link {
-    color: var(--gs-slate-muted);
+    color: var(--gs-text-muted);
     text-decoration: none;
     font-size: 0.9rem;
 }
@@ -718,25 +801,15 @@ code {
     color: var(--gs-gold-dark);
 }
 
-.detail-header .type-badge {
-    background-color: var(--gs-slate);
-    color: white;
-    font-size: 0.85rem;
-    padding: 0.35rem 0.75rem;
-    border-radius: 4px;
-    margin-bottom: 0.5rem;
-    display: inline-block;
-}
-
 .detail-header .detail-title {
     font-size: 1.75rem;
     font-weight: 700;
-    color: var(--gs-slate);
+    color: var(--gs-text);
     margin: 0.25rem 0 0 0;
 }
 
 .detail-header .detail-subtitle {
-    color: var(--gs-slate-muted);
+    color: var(--gs-text-muted);
     font-size: 0.95rem;
 }
 
@@ -746,7 +819,7 @@ code {
 }
 
 .collapsible-section .card-header-custom:hover {
-    background-color: #eef0f2;
+    background-color: var(--gs-border-light);
 }
 
 .collapse-icon {
@@ -764,8 +837,8 @@ code {
 
 /* Raw JSON Display */
 .raw-json-display {
-    background-color: #1e2a38;
-    color: #ecf0f1;
+    background-color: var(--gs-log-bg);
+    color: var(--gs-log-text);
     padding: 1rem;
     border-radius: 6px;
     font-family: 'Consolas', 'Monaco', monospace;
@@ -789,7 +862,7 @@ code {
 }
 
 .attachment-card {
-    background-color: white;
+    background-color: var(--gs-bg-card);
     border: 1px solid var(--gs-border);
     border-radius: 8px;
     padding: 0.75rem;
@@ -835,7 +908,7 @@ code {
 .attachment-name {
     font-weight: 600;
     font-size: 0.875rem;
-    color: var(--gs-slate);
+    color: var(--gs-text);
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -843,7 +916,7 @@ code {
 
 .attachment-meta {
     font-size: 0.75rem;
-    color: var(--gs-slate-muted);
+    color: var(--gs-text-muted);
     margin-top: 0.25rem;
 }
 
@@ -854,11 +927,68 @@ code {
 }
 
 /* ==========================================================================
-   21. Print Styles
+   21. Reports Page
+   ========================================================================== */
+
+.report-card {
+    transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.report-card:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+}
+
+.report-icon {
+    font-size: 2.5rem;
+    color: var(--gs-gold);
+    margin-bottom: 1rem;
+}
+
+.report-card .card-title {
+    color: var(--gs-text);
+}
+
+.report-card .card-text {
+    font-size: 0.9rem;
+}
+
+/* ==========================================================================
+   22. Tab Navigation (Utility Page)
+   ========================================================================== */
+
+.nav-tabs {
+    border-bottom-color: var(--gs-border);
+}
+
+.nav-tabs .nav-link {
+    color: var(--gs-text);
+    border: 1px solid transparent;
+}
+
+.nav-tabs .nav-link:hover {
+    border-color: var(--gs-border) var(--gs-border) transparent;
+}
+
+.nav-tabs .nav-link.active {
+    color: var(--gs-text);
+    background-color: var(--gs-bg-card);
+    border-color: var(--gs-border) var(--gs-border) var(--gs-bg-card);
+}
+
+.tab-content {
+    background-color: var(--gs-bg-card);
+    border: 1px solid var(--gs-border);
+    border-top: none;
+    border-radius: 0 0 8px 8px;
+    padding: 1.5rem;
+}
+
+/* ==========================================================================
+   23. Print Styles
    ========================================================================== */
 
 @media print {
-    /* Hide non-essential elements */
     .app-header,
     .app-nav,
     .no-print,
@@ -866,11 +996,11 @@ code {
     .btn,
     .attachment-actions,
     .modal,
-    .collapsible-section.no-print {
+    .collapsible-section.no-print,
+    .theme-toggle {
         display: none !important;
     }
 
-    /* Reset page layout */
     body {
         background-color: white !important;
         color: black !important;
@@ -884,7 +1014,6 @@ code {
         padding: 0 !important;
     }
 
-    /* Header adjustments */
     .detail-header {
         background-color: white !important;
         border-bottom: 2px solid black !important;
@@ -892,13 +1021,6 @@ code {
         margin: 0 0 1rem 0 !important;
         box-shadow: none !important;
         page-break-after: avoid;
-    }
-
-    .detail-header .type-badge {
-        background-color: #333 !important;
-        color: white !important;
-        -webkit-print-color-adjust: exact;
-        print-color-adjust: exact;
     }
 
     .detail-title {
@@ -909,7 +1031,6 @@ code {
         font-size: 10pt !important;
     }
 
-    /* Cards */
     .details-card {
         box-shadow: none !important;
         border: 1px solid #ccc !important;
@@ -929,7 +1050,6 @@ code {
         padding: 0.5rem 0.75rem !important;
     }
 
-    /* Fields */
     .field-row {
         padding: 0.35rem 0 !important;
         font-size: 9pt;
@@ -945,7 +1065,6 @@ code {
         font-size: 9pt;
     }
 
-    /* Badges - ensure colors print */
     .badge {
         border: 1px solid #999 !important;
         -webkit-print-color-adjust: exact;
@@ -962,7 +1081,6 @@ code {
         color: #383d41 !important;
     }
 
-    /* Two column layout becomes single column */
     .row {
         display: block !important;
     }
@@ -974,13 +1092,11 @@ code {
         flex: none !important;
     }
 
-    /* Collapsed sections should expand for print */
     .collapse {
         display: block !important;
         height: auto !important;
     }
 
-    /* Attachments section in print - show list only */
     .attachment-grid {
         display: block !important;
     }
@@ -995,7 +1111,6 @@ code {
         display: none !important;
     }
 
-    /* Print images section - only visible in print */
     .print-images-section {
         display: block !important;
         page-break-before: always;
@@ -1028,68 +1143,98 @@ code {
         font-style: italic;
     }
 
-    /* Page breaks */
     h2, h3 {
         page-break-after: avoid;
     }
 
-    /* URLs */
     a[href]:after {
         content: none !important;
     }
 }
 
-/* Hide print-only section on screen */
 @media screen {
     .print-images-section {
         display: none;
     }
 }
 
-/* NOBBIE BRANDING */
-.nobbie-brand-container {
-    display: flex;
-    flex-direction: column;
-    align-items: flex-start;
+/* ==========================================================================
+   24. Responsive Adjustments
+   ========================================================================== */
+
+@media (max-width: 768px) {
+    .app-header {
+        padding: 1rem;
+    }
+    
+    .app-header h1 {
+        font-size: 1.5rem;
+    }
+    
+    .app-nav {
+        padding: 0 1rem;
+    }
+    
+    .app-nav .nav-link {
+        padding: 0.75rem 1rem;
+    }
+    
+    .filter-grid > .input-wrapper,
+    .filter-grid > .date-frame {
+        flex: 1 1 100%;
+        max-width: 100%;
+    }
+    
+    .stats-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+    
+    .detail-header {
+        padding: 1rem;
+        margin: -1rem -0.5rem 1.5rem -0.5rem;
+    }
+    
+    .detail-header .detail-title {
+        font-size: 1.25rem;
+    }
 }
 
-.nobbie-brand {
-    font-family: "Arial Black", "Arial Bold", Gadget, sans-serif;
-    font-weight: 900;
-    font-style: italic;
-    font-size: 2.2rem;
-    color: var(--gs-gold);
-    text-transform: uppercase;
-    letter-spacing: -1px;
-    line-height: 1;
-    /* Create a slight outline effect to pop against the dark header */
-    text-shadow: 2px 2px 0px #000;
-    margin-bottom: 4px;
+/* ==========================================================================
+   25. Dark Theme Modal
+   ========================================================================== */
+
+.theme-dark .modal-content {
+    background-color: var(--gs-bg-card);
+    color: var(--gs-text);
 }
 
-.nobbie-tagline {
-    font-family: Arial, sans-serif;
-    color: #fff;
-    font-size: 0.75rem;
-    font-weight: bold;
-    letter-spacing: 3px;
-    text-transform: uppercase;
-    border-top: 2px solid var(--gs-gold);
-    border-bottom: 2px solid var(--gs-gold);
-    padding: 2px 8px;
-    width: 100%;
-    text-align: center;
-    background-color: rgba(0,0,0,0.2);
+.theme-dark .modal-header {
+    border-bottom-color: var(--gs-border);
 }
 
-.anti-noggin-badge {
-    font-size: 0.7rem;
-    background: #dc3545; /* Red for 'Alert' */
-    color: white;
-    padding: 2px 6px;
-    border-radius: 4px;
-    margin-left: 10px;
-    font-style: normal;
-    vertical-align: middle;
-    letter-spacing: 0.5px;
+.theme-dark .btn-close {
+    filter: invert(1);
+}
+
+/* ==========================================================================
+   26. Form Controls Dark Theme
+   ========================================================================== */
+
+.theme-dark .form-control,
+.theme-dark .form-select {
+    background-color: var(--gs-input-bg);
+    border-color: var(--gs-input-border);
+    color: var(--gs-text);
+}
+
+.theme-dark .form-control:focus,
+.theme-dark .form-select:focus {
+    background-color: var(--gs-input-bg);
+    border-color: var(--gs-gold);
+    color: var(--gs-text);
+    box-shadow: 0 0 0 2px rgba(242, 196, 56, 0.25);
+}
+
+.theme-dark .form-label {
+    color: var(--gs-text);
 }

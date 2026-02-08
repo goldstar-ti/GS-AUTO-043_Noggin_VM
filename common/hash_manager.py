@@ -7,17 +7,8 @@ The hash_lookup table is populated by hash_lookup_sync.py from weekly Noggin exp
 This module is used by processors during data extraction to resolve vehicle, trailer,
 team, and department hashes to their display names.
 
-Loads hash type detection patterns from config/hash_detection.ini
-
-
-Changes from original:
-1. Removed unnecessary pandas dependency and file rewrite operations
-2. Improved type detection with configurable patterns
-3. Added batch database operations for efficiency
-4. Better cache management
-5. Added statistics and reporting methods
-6. Fixed cache invalidation issues
-7. Added get_by_type method for CLI list command
+Noggin hashes are globally unique, so lookups are performed by tip_hash only.
+The lookup_type field is retained for statistics and reporting purposes.
 """
 from __future__ import annotations
 import configparser
@@ -67,7 +58,6 @@ class HashTypeDetector:
         
         self._patterns.clear()
         
-        # Load scoring settings
         if config.has_section('hash_detection'):
             self._settings = {
                 'keyword_score': config.getint('hash_detection', 'keyword_score', fallback=10),
@@ -83,14 +73,12 @@ class HashTypeDetector:
                 'max_code_length': 10,
             }
         
-        # Load type patterns
         for section in config.sections():
             if not section.startswith('hash_type.'):
                 continue
             
             type_name = section.replace('hash_type.', '')
             
-            # Parse comma-separated values, filter empty strings
             keywords_str = config.get(section, 'keywords', fallback='')
             prefixes_str = config.get(section, 'prefixes', fallback='')
             patterns_str = config.get(section, 'patterns', fallback='')
@@ -188,19 +176,16 @@ class HashTypeDetector:
         for type_name, config in self._patterns.items():
             score = 0
             
-            # Check keywords
             for keyword in config.get('keywords', []):
                 if keyword in value_lower:
                     score += self._settings['keyword_score']
             
-            # Check prefixes (for code-style values like MB26, T107)
             for prefix in config.get('prefixes', []):
                 if value_upper.startswith(prefix) and len(resolved_value) <= self._settings['max_code_length']:
                     remainder = value_upper[len(prefix):]
                     if remainder.isdigit():
                         score += self._settings['prefix_score']
             
-            # Check regex patterns
             for pattern in config.get('patterns', []):
                 if re.match(pattern, resolved_value, re.IGNORECASE):
                     score += self._settings['pattern_score']
@@ -234,7 +219,6 @@ class HashTypeDetector:
                 logger.info(f"Added keyword '{keyword}' to {type_name}")
 
 
-# Module-level detector instance
 _detector = HashTypeDetector()
 
 
@@ -244,7 +228,12 @@ def load_hash_detection_config(config_path: Optional[str] = None) -> None:
 
 
 class HashManager:
-    """Manages hash lookups and resolution for Noggin data"""
+    """
+    Manages hash lookups and resolution for Noggin data.
+    
+    Noggin hashes are globally unique, so lookups are performed by tip_hash only.
+    The lookup_type parameter is retained for recording unknown hashes and statistics.
+    """
     
     def __init__(self, config: 'ConfigLoader', db_manager: 'DatabaseConnectionManager') -> None:
         self.config: 'ConfigLoader' = config
@@ -252,11 +241,12 @@ class HashManager:
         self.log_path: Path = Path(config.get('paths', 'base_log_path'))
         self.log_path.mkdir(parents=True, exist_ok=True)
         
-        self._cache: Dict[Tuple[str, str], str] = {}
+        # Cache: tip_hash -> resolved_value (hashes are globally unique)
+        self._cache: Dict[str, str] = {}
         self._cache_loaded: bool = False
+        # Track unknown hashes by (tip_hash, lookup_type) to avoid duplicate logging
         self._unknown_hashes_logged: Set[Tuple[str, str]] = set()
         
-        # Load detection config if available
         hash_config_path = config.get('hash_detection', 'config_file', fallback=None)
         if hash_config_path:
             _detector.load(hash_config_path)
@@ -268,13 +258,12 @@ class HashManager:
         
         try:
             results: List[Dict[str, Any]] = self.db_manager.execute_query_dict(
-                "SELECT tip_hash, lookup_type, resolved_value FROM hash_lookup"
+                "SELECT tip_hash, resolved_value FROM hash_lookup"
             )
             
             self._cache.clear()
             for row in results:
-                cache_key = (row['tip_hash'], row['lookup_type'])
-                self._cache[cache_key] = row['resolved_value']
+                self._cache[row['tip_hash']] = row['resolved_value']
             
             self._cache_loaded = True
             logger.info(f"Loaded {len(self._cache)} hash lookups into cache")
@@ -292,10 +281,13 @@ class HashManager:
     def lookup_hash(self, lookup_type: str, tip_hash: str, tip_value: Optional[str] = None, 
                    inspection_id: Optional[str] = None) -> str:
         """
-        Lookup hash and return resolved value
+        Lookup hash and return resolved value.
+        
+        Noggin hashes are globally unique, so lookup is performed by tip_hash only.
+        The lookup_type parameter is used for recording unknown hashes for statistics.
         
         Args:
-            lookup_type: Type of lookup (vehicle, trailer, department, team)
+            lookup_type: Type of lookup (vehicle, trailer, department, team) - for statistics
             tip_hash: Hash value to resolve
             tip_value: TIP value for logging unknown hashes
             inspection_id: Inspection ID for logging
@@ -309,15 +301,8 @@ class HashManager:
         if not self._cache_loaded:
             self._load_cache()
         
-        cache_key: Tuple[str, str] = (tip_hash, lookup_type)
-        
-        if cache_key in self._cache:
-            return self._cache[cache_key]
-        
-        # Also check if hash exists under 'unknown' type
-        unknown_key = (tip_hash, 'unknown')
-        if unknown_key in self._cache:
-            return self._cache[unknown_key]
+        if tip_hash in self._cache:
+            return self._cache[tip_hash]
         
         self._record_unknown_hash(lookup_type, tip_hash, tip_value, inspection_id)
         
@@ -333,7 +318,6 @@ class HashManager:
         
         self._unknown_hashes_logged.add(cache_key)
         
-        # Log to file
         unknown_log_file: Path = self.log_path / 'unknown_hashes.log'
         timestamp: str = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
         log_entry: str = f"{timestamp} | {lookup_type} | {tip_hash} | {inspection_id or 'N/A'} | TIP: {tip_value or 'N/A'}\n"
@@ -344,7 +328,6 @@ class HashManager:
         except Exception as e:
             logger.warning(f"Could not write to unknown hashes log: {e}")
         
-        # Insert to database
         try:
             self.db_manager.execute_update(
                 """
@@ -441,12 +424,15 @@ class HashManager:
                     """
                     INSERT INTO hash_lookup (tip_hash, lookup_type, resolved_value)
                     VALUES (%s, %s, %s)
-                    ON CONFLICT (tip_hash, lookup_type) 
-                    DO UPDATE SET resolved_value = EXCLUDED.resolved_value, updated_at = CURRENT_TIMESTAMP
+                    ON CONFLICT (tip_hash) 
+                    DO UPDATE SET 
+                        lookup_type = EXCLUDED.lookup_type,
+                        resolved_value = EXCLUDED.resolved_value, 
+                        updated_at = CURRENT_TIMESTAMP
                     """,
                     (tip_hash, lookup_type, resolved_value)
                 )
-                self._cache[(tip_hash, lookup_type)] = resolved_value
+                self._cache[tip_hash] = resolved_value
             
             return len(batch)
                 
@@ -460,7 +446,7 @@ class HashManager:
         
         Args:
             tip_hash: Hash to resolve
-            lookup_type: Type of lookup
+            lookup_type: Type of lookup (for statistics)
             resolved_value: Value to associate with hash
             
         Returns:
@@ -471,8 +457,11 @@ class HashManager:
                 """
                 INSERT INTO hash_lookup (tip_hash, lookup_type, resolved_value)
                 VALUES (%s, %s, %s)
-                ON CONFLICT (tip_hash, lookup_type) 
-                DO UPDATE SET resolved_value = EXCLUDED.resolved_value, updated_at = CURRENT_TIMESTAMP
+                ON CONFLICT (tip_hash) 
+                DO UPDATE SET 
+                    lookup_type = EXCLUDED.lookup_type,
+                    resolved_value = EXCLUDED.resolved_value, 
+                    updated_at = CURRENT_TIMESTAMP
                 """,
                 (tip_hash, lookup_type, resolved_value)
             )
@@ -481,12 +470,12 @@ class HashManager:
                 """
                 UPDATE unknown_hashes
                 SET resolved_at = CURRENT_TIMESTAMP, resolved_value = %s
-                WHERE tip_hash = %s AND lookup_type = %s AND resolved_at IS NULL
+                WHERE tip_hash = %s AND resolved_at IS NULL
                 """,
-                (resolved_value, tip_hash, lookup_type)
+                (resolved_value, tip_hash)
             )
             
-            self._cache[(tip_hash, lookup_type)] = resolved_value
+            self._cache[tip_hash] = resolved_value
             
             logger.info(f"Resolved hash: {lookup_type}={tip_hash[:16]}... -> {resolved_value}")
             return True
@@ -536,7 +525,9 @@ class HashManager:
     
     def auto_resolve_unknown_hashes(self) -> int:
         """
-        Automatically resolve unknown hashes that now exist in hash_lookup
+        Automatically resolve unknown hashes that now exist in hash_lookup.
+        
+        Since hashes are globally unique, this matches on tip_hash only.
         
         Returns:
             Number of hashes resolved
@@ -549,7 +540,6 @@ class HashManager:
                 resolved_value = hl.resolved_value
             FROM hash_lookup hl
             WHERE uh.tip_hash = hl.tip_hash
-              AND uh.lookup_type = hl.lookup_type
               AND uh.resolved_at IS NULL
         """
         
@@ -565,11 +555,13 @@ class HashManager:
     
     def update_lookup_type_if_unknown(self, tip_hash: str, context_key: str) -> None:
         """
-        Update lookup_type from 'unknown' to actual type based on context
+        Update lookup_type from 'unknown' to actual type based on context.
+        
+        This updates the lookup_type metadata for statistics purposes.
         
         Args:
             tip_hash: Hash value
-            context_key: Key from API response (team, vehicle, whichDepartmentDoesTheLoadBelongTo, trailer)
+            context_key: Key from API response (team, vehicle, trailer, etc.)
         """
         if not tip_hash:
             return
@@ -596,9 +588,6 @@ class HashManager:
             )
             
             if rows_updated > 0:
-                if (tip_hash, 'unknown') in self._cache:
-                    value = self._cache.pop((tip_hash, 'unknown'))
-                    self._cache[(tip_hash, normalised_type)] = value
                 logger.debug(f"Updated lookup_type: {tip_hash[:16]}... from unknown to {normalised_type}")
                 
         except Exception as e:
@@ -792,9 +781,9 @@ class HashManager:
                 existing_results = self.db_manager.execute_query_dict(
                     f"""
                     SELECT tip_hash FROM hash_lookup 
-                    WHERE tip_hash IN ({placeholders}) AND lookup_type = %s
+                    WHERE tip_hash IN ({placeholders})
                     """,
-                    tuple(tip_hashes) + (lookup_type,)
+                    tuple(tip_hashes)
                 )
                 existing_hashes = {r['tip_hash'] for r in existing_results}
                 
@@ -804,10 +793,12 @@ class HashManager:
                             self.db_manager.execute_update(
                                 """
                                 UPDATE hash_lookup 
-                                SET resolved_value = %s, updated_at = CURRENT_TIMESTAMP
-                                WHERE tip_hash = %s AND lookup_type = %s
+                                SET resolved_value = %s, 
+                                    lookup_type = %s,
+                                    updated_at = CURRENT_TIMESTAMP
+                                WHERE tip_hash = %s
                                 """,
-                                (resolved_value, tip_hash, lookup_type)
+                                (resolved_value, lookup_type, tip_hash)
                             )
                             duplicate_count += 1
                         else:
@@ -820,15 +811,15 @@ class HashManager:
                             )
                             imported_count += 1
                         
-                        self._cache[(tip_hash, lookup_type)] = resolved_value
+                        self._cache[tip_hash] = resolved_value
                         
                         self.db_manager.execute_update(
                             """
                             UPDATE unknown_hashes
                             SET resolved_at = CURRENT_TIMESTAMP, resolved_value = %s
-                            WHERE tip_hash = %s AND lookup_type = %s AND resolved_at IS NULL
+                            WHERE tip_hash = %s AND resolved_at IS NULL
                             """,
-                            (resolved_value, tip_hash, lookup_type)
+                            (resolved_value, tip_hash)
                         )
                         
                     except Exception as e:
@@ -851,7 +842,6 @@ class HashManager:
 if __name__ == "__main__":
     import sys
     
-    # Test type detection
     config_path = sys.argv[1] if len(sys.argv) > 1 else None
     _detector.load(config_path)
     

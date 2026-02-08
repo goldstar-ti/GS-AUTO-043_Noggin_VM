@@ -1,0 +1,87 @@
+{% extends "base.html" %}
+
+{% block title %}Unknown Hashes - Reports{% endblock %}
+
+{% block content %}
+<div class="mb-4">
+    <a href="{{ url_for('reports') }}" class="back-link">
+        <i class="fas fa-arrow-left me-1"></i> Back to Reports
+    </a>
+</div>
+
+<h2 class="mb-4">Unknown Hash Summary</h2>
+
+<div class="card mb-4">
+    <div class="card-header">
+        Summary by Lookup Type
+    </div>
+    <div class="card-body">
+        <div class="table-responsive">
+            <table class="table table-hover mb-0">
+                <thead>
+                    <tr>
+                        <th>Lookup Type</th>
+                        <th>Unique Hashes</th>
+                        <th>Total Occurrences</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in summary %}
+                    <tr>
+                        <td><strong>{{ item.lookup_type }}</strong></td>
+                        <td>{{ item.count }}</td>
+                        <td>{{ item.total_occurrences }}</td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="3" class="text-center py-4">No unknown hashes</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-header">
+        Unknown Hashes Detail ({{ unknown|length }} shown)
+    </div>
+    <div class="card-body">
+        <div class="table-responsive">
+            <table class="table table-sm table-hover mb-0">
+                <thead>
+                    <tr>
+                        <th>Hash (partial)</th>
+                        <th>Type</th>
+                        <th>Occurrences</th>
+                        <th>First Seen</th>
+                        <th>Last Seen</th>
+                        <th>First Inspection</th>
+                        <th>Object Type</th>
+                        <th>Team</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in unknown %}
+                    <tr>
+                        <td><code>{{ item.tip_hash[:16] }}...</code></td>
+                        <td><span class="badge bg-secondary">{{ item.lookup_type }}</span></td>
+                        <td><strong>{{ item.occurrence_count }}</strong></td>
+                        <td>{{ item.first_seen_at.strftime('%d %b %Y') if item.first_seen_at else '-' }}</td>
+                        <td>{{ item.last_seen_at.strftime('%d %b %Y') if item.last_seen_at else '-' }}</td>
+                        <td>{{ item.first_seen_inspection_id or '-' }}</td>
+                        <td><small>{{ item.object_type or '-' }}</small></td>
+                        <td><small>{{ item.team or '-' }}</small></td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="8" class="text-center py-4">No unknown hashes requiring resolution</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

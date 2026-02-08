@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="{{ theme }}">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -8,10 +8,21 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
 </head>
-<body>
+<body class="theme-{{ theme }}">
     <header class="app-header">
-        <h1>NOBBIE</h1>
-        <h6>Noggin Object Binary Backup & Ingestion Engine</h6>
+        <div class="d-flex justify-content-between align-items-center">
+            <div>
+                <h1>NOBBIE</h1>
+                <h6>Noggin Object Binary Backup & Ingestion Engine</h6>
+            </div>
+            <a href="{{ url_for('toggle_theme') }}" class="theme-toggle" title="Toggle light/dark theme">
+                {% if theme == 'dark' %}
+                <i class="fas fa-sun"></i>
+                {% else %}
+                <i class="fas fa-moon"></i>
+                {% endif %}
+            </a>
+        </div>
     </header>
 
     <nav class="app-nav">
@@ -20,10 +31,16 @@
                 <a href="{{ url_for('index') }}" class="nav-link {% if request.endpoint == 'index' %}active{% endif %}">Dashboard</a>
             </li>
             <li class="nav-item">
-                <a href="{{ url_for('inspections') }}" class="nav-link {% if request.endpoint == 'inspections' %}active{% endif %}">Inspections</a>
+                <a href="{{ url_for('records') }}" class="nav-link {% if request.endpoint in ['records', 'record_detail', 'inspections', 'inspection_detail'] %}active{% endif %}">Records</a>
+            </li>
+            <li class="nav-item">
+                <a href="{{ url_for('reports') }}" class="nav-link {% if request.endpoint and request.endpoint.startswith('report') %}active{% endif %}">Reports</a>
             </li>
             <li class="nav-item">
                 <a href="{{ url_for('hashes') }}" class="nav-link {% if request.endpoint == 'hashes' %}active{% endif %}">Hashes</a>
+            </li>
+            <li class="nav-item">
+                <a href="{{ url_for('utility') }}" class="nav-link {% if request.endpoint == 'utility' %}active{% endif %}">Utility</a>
             </li>
             <li class="nav-item">
                 <a href="{{ url_for('service_status') }}" class="nav-link {% if request.endpoint == 'service_status' %}active{% endif %}">Service Status</a>

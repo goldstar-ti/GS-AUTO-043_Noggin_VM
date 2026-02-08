@@ -1,0 +1,63 @@
+{% extends "base.html" %}
+
+{% block title %}NOBBIE Error {{ error_code }}{% endblock %}
+
+{% block content %}
+<div class="d-flex flex-column justify-content-center align-items-center" style="min-height: 50vh;">
+    
+    <div class="card shadow-lg border-0" style="max-width: 600px; width: 100%;">
+        <div class="card-body p-5">
+            
+            <div class="text-center mb-4">
+                 <div class="position-relative d-inline-block">
+                    <i class="fas fa-robot fa-5x text-secondary"></i>
+                    {% if error_code >= 500 %}
+                        <i class="fas fa-dizzy position-absolute top-50 start-50 translate-middle text-warning" style="font-size: 2.5rem;"></i>
+                    {% else %}
+                        <i class="fas fa-question position-absolute top-0 end-0 translate-middle text-primary" style="font-size: 2rem;"></i>
+                    {% endif %}
+                </div>
+            </div>
+
+            <div class="alert alert-secondary border-2 border-secondary position-relative p-4 mb-4 rounded-3" style="background-color: #f8f9fa;">
+                <h4 class="alert-heading fw-bold mb-2">
+                    <i class="fas fa-comment-alt me-2"></i>NOBBIE SAYS:
+                </h4>
+                <p class="lead mb-0 fst-italic text-dark">
+                    "{{ error_message.replace('NOBBIE SAYS: ', '') }}"
+                </p>
+                <div style="position: absolute; top: -10px; left: 50%; transform: translateX(-50%); width: 0; height: 0; border-left: 10px solid transparent; border-right: 10px solid transparent; border-bottom: 10px solid #6c757d;"></div>
+            </div>
+
+            <div class="text-center">
+                <p class="text-muted small mb-2">Technical Error Code: {{ error_code }}</p>
+                
+                {% if error_detail %}
+                <div class="d-inline-block bg-light border rounded px-3 py-1 mb-4 font-monospace small text-danger">
+                    {{ error_detail }}
+                </div>
+                {% endif %}
+
+                <div class="d-grid gap-2 d-sm-flex justify-content-sm-center">
+                    <a href="{{ url_for('index') }}" class="btn btn-primary px-4">
+                        <i class="fas fa-home me-2"></i>Take Me Home
+                    </a>
+                    <button onclick="history.back()" class="btn btn-outline-secondary px-4">
+                        <i class="fas fa-undo me-2"></i>Try Again
+                    </button>
+                </div>
+            </div>
+
+        </div>
+
+        {% if error_code >= 500 %}
+        <div class="card-footer bg-light text-center py-3">
+            <small class="text-muted">
+                Please screenshot this page and attach it to a Helpdesk ticket along with the exact time. Ask them to check web_access.log and web_error.log in /mnt/data/noggin/log.
+            </small>
+        </div>
+        {% endif %}
+        
+    </div>
+</div>
+{% endblock %}

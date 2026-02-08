@@ -1,0 +1,75 @@
+{% extends "base.html" %}
+
+{% block title %}Failed Processing - Reports{% endblock %}
+
+{% block content %}
+<div class="mb-4">
+    <a href="{{ url_for('reports') }}" class="back-link">
+        <i class="fas fa-arrow-left me-1"></i> Back to Reports
+    </a>
+</div>
+
+<h2 class="mb-4">Failed Processing Report</h2>
+
+<div class="card">
+    <div class="card-header">
+        Records with Processing Failures ({{ records|length }} shown)
+    </div>
+    <div class="card-body">
+        <div class="table-responsive">
+            <table class="table table-hover mb-0">
+                <thead>
+                    <tr>
+                        <th>Reference</th>
+                        <th>Type</th>
+                        <th>Date</th>
+                        <th>Vehicle</th>
+                        <th>Team</th>
+                        <th>Status</th>
+                        <th>Retries</th>
+                        <th>Last Error</th>
+                        <th>Updated</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for record in records %}
+                    <tr>
+                        <td>{{ record.noggin_reference or record.tip[:12] }}</td>
+                        <td><small>{{ record.object_type }}</small></td>
+                        <td>{{ record.inspection_date.strftime('%d %b %Y') if record.inspection_date else '-' }}</td>
+                        <td>{{ record.vehicle or '-' }}</td>
+                        <td>{{ record.team or '-' }}</td>
+                        <td><span class="badge badge-status-{{ record.processing_status }}">{{ record.processing_status }}</span></td>
+                        <td>
+                            {% if record.retry_count > 0 %}
+                                <span class="badge bg-warning text-dark">{{ record.retry_count }}</span>
+                            {% else %}
+                                0
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if record.last_error_message %}
+                                <small class="text-danger" title="{{ record.last_error_message }}">
+                                    {{ record.last_error_message[:50] }}{% if record.last_error_message|length > 50 %}...{% endif %}
+                                </small>
+                            {% else %}
+                                <span class="text-muted">-</span>
+                            {% endif %}
+                        </td>
+                        <td>{{ record.updated_at.strftime('%d %b %H:%M') if record.updated_at else '-' }}</td>
+                        <td>
+                            <a href="{{ url_for('record_detail', tip=record.tip) }}" class="btn btn-sm btn-primary">View</a>
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="10" class="text-center py-4">No failed processing records</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

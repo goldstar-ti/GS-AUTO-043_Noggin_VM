@@ -43,7 +43,6 @@ class SyncStatistics:
     errors: list = field(default_factory=list)
 
 
-# Mapping from Noggin assetType to lookup_type
 ASSET_TYPE_MAPPING: dict[str, str] = {
     'PRIME MOVER': 'vehicle',
     'RIGID': 'vehicle',
@@ -56,14 +55,14 @@ ASSET_TYPE_MAPPING: dict[str, str] = {
     'UHF': 'uhf',
 }
 
-# Site name patterns that indicate department vs team
-DEPARTMENT_PATTERNS: tuple[str, ...] = (
-    '- Drivers',
-    '- Admin',
-    'Transport',
-    'Workshop',
-    'Distribution',
-)
+# Mapping from Noggin siteType to lookup_type (trusts Noggin's classification)
+SITE_TYPE_MAPPING: dict[str, str] = {
+    'team': 'team',
+    'business unit': 'department',
+    'virtual (for reporting)': 'department',
+    'businessunit': 'department',
+    'virtualforreporting': 'department',
+}
 
 
 def get_default_paths() -> dict[str, Path]:
@@ -111,50 +110,63 @@ def format_source_type(raw_type: Optional[str]) -> str:
     
     raw_str = str(raw_type).strip()
     
-    # Handle already camelCase values (e.g., businessUnit, virtualForReporting)
+    # if camelCase already
     if ' ' not in raw_str and raw_str[0].islower():
         return raw_str[0].upper() + raw_str[1:]
     
-    # Convert UPPER CASE or Title Case to CamelCase
+    # convert UPPER to Title or CamelCase
     words = raw_str.replace('_', ' ').split()
     return ''.join(word.capitalize() for word in words)
 
 
 def determine_site_lookup_type(site_name: str, site_type: Optional[str]) -> str:
     """
-    Determine lookup_type from site name patterns and siteType.
+    Determine lookup_type from Noggin siteType.
     
-    Sites with names containing patterns like '- Drivers' or '- Admin' are classified
-    as departments. Sites with siteType 'team' that don't match department patterns
-    are classified as teams. Everything else (businessUnit, virtualForReporting) 
-    becomes department.
+    Trusts Noggin's siteType classification directly:
+    - 'Team' -> 'team'
+    - 'Business Unit' -> 'department'
+    - 'Virtual (for reporting)' -> 'department'
+    - Unknown/other -> 'unknown'
     """
-    site_name_str = str(site_name) if site_name else ''
+    if not site_type or pd.isna(site_type):
+        return 'unknown'
     
-    # Check for department patterns in site name
-    for pattern in DEPARTMENT_PATTERNS:
-        if pattern in site_name_str:
-            return 'department'
+    # Normalise: lowercase and remove extra spaces
+    site_type_normalised = str(site_type).strip().lower()
     
-    # siteType 'team' maps to lookup_type 'team' unless name suggests department
-    if site_type and str(site_type).strip().lower() == 'team':
-        if any(p in site_name_str for p in DEPARTMENT_PATTERNS):
-            return 'department'
-        return 'team'
+    # Remove spaces and parentheses for more flexible matching
+    site_type_compact = site_type_normalised.replace(' ', '').replace('(', '').replace(')', '')
     
-    # Everything else (businessUnit, virtualForReporting) is department
-    return 'department'
+    # Check mapping
+    if site_type_normalised in SITE_TYPE_MAPPING:
+        return SITE_TYPE_MAPPING[site_type_normalised]
+    if site_type_compact in SITE_TYPE_MAPPING:
+        return SITE_TYPE_MAPPING[site_type_compact]
+    
+    logger.warning(f"Unknown site type: '{site_type}' for site '{site_name}'")
+    return 'unknown'
 
 
-def format_site_resolved_value(goldstar_id: Optional[str], site_name: Optional[str]) -> str:
+def format_site_resolved_value(
+    goldstar_id: Optional[str], 
+    site_name: Optional[str],
+    config: 'ConfigLoader'
+) -> str:
     """
-    Format resolved_value for sites as '<goldstarId> - <siteName>'.
+    Format resolved_value for sites.
     
-    If goldstar_id is missing or empty, returns just the site name.
+    Respects [csv_import] prefix_site_with_goldstar_id flag (default: true):
+    - true: '<goldstarId> - <siteName>'
+    - false: '<siteName>'
+    
+    If goldstar_id is missing/empty, returns just the site name regardless of flag.
     """
     name = str(site_name).strip() if site_name and not pd.isna(site_name) else 'Unknown'
     
-    if goldstar_id and not pd.isna(goldstar_id):
+    prefix_with_id = config.getboolean('csv_import', 'prefix_site_with_goldstar_id', fallback=True)
+    
+    if prefix_with_id and goldstar_id and not pd.isna(goldstar_id):
         gid = str(goldstar_id).strip()
         return f"{gid} - {name}"
     
@@ -175,11 +187,9 @@ def detect_file_type(csv_path: Path) -> Optional[str]:
         df = pd.read_csv(csv_path, nrows=0, encoding='utf-8-sig')
         columns = set(df.columns)
         
-        # Asset exports have assetType and/or assetName columns
         if 'assetType' in columns or 'assetName' in columns:
             return 'asset'
         
-        # Site exports have siteType and/or siteName columns
         if 'siteType' in columns or 'siteName' in columns:
             return 'site'
         
@@ -251,7 +261,6 @@ def process_assets(df: pd.DataFrame) -> list[tuple[str, str, str, str]]:
         
         tip_hash = str(tip_hash).strip()
         
-        # Keep expired/empty name records with 'Unknown' as resolved value
         if not asset_name or pd.isna(asset_name):
             asset_name = 'Unknown'
             logger.debug(f"Asset {tip_hash[:16]}... has no name, using 'Unknown'")
@@ -269,7 +278,7 @@ def process_assets(df: pd.DataFrame) -> list[tuple[str, str, str, str]]:
     return records
 
 
-def process_sites(df: pd.DataFrame) -> list[tuple[str, str, str, str]]:
+def process_sites(df: pd.DataFrame, config: 'ConfigLoader') -> list[tuple[str, str, str, str]]:
     """
     Process site DataFrame into hash_lookup records.
     
@@ -295,7 +304,7 @@ def process_sites(df: pd.DataFrame) -> list[tuple[str, str, str, str]]:
             logger.debug(f"Site {tip_hash[:16]}... has no name, skipping")
             continue
         
-        resolved_value = format_site_resolved_value(goldstar_id, site_name)
+        resolved_value = format_site_resolved_value(goldstar_id, site_name, config)
         lookup_type = determine_site_lookup_type(site_name, site_type)
         source_type = format_source_type(site_type)
         
@@ -436,7 +445,6 @@ def download_from_sftp(config: 'ConfigLoader', paths: dict[str, Path]) -> tuple[
             logger.error(f"Expected at least 2 CSV files, found {len(csv_files)}")
             return None, None
         
-        # Sort by modification time (newest first)
         csv_files_with_time = []
         for f in csv_files:
             stat = sftp.stat(f"{remote_path}/{f}")
@@ -455,7 +463,6 @@ def download_from_sftp(config: 'ConfigLoader', paths: dict[str, Path]) -> tuple[
         
         sftp.close()
         
-        # Detect file types
         asset_file = None
         site_file = None
         
@@ -484,9 +491,7 @@ def download_from_sftp(config: 'ConfigLoader', paths: dict[str, Path]) -> tuple[
 
 
 def archive_file(file_path: Path, archive_folder: Path) -> Path:
-    """
-    Move processed file to archive folder with timestamp suffix.
-    """
+    """Move processed file to archive folder with timestamp suffix."""
     archive_folder.mkdir(parents=True, exist_ok=True)
     
     timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
@@ -500,9 +505,7 @@ def archive_file(file_path: Path, archive_folder: Path) -> Path:
 
 
 def move_to_error(file_path: Path, error_folder: Path) -> Path:
-    """
-    Move failed file to error folder with timestamp suffix.
-    """
+    """Move failed file to error folder with timestamp suffix."""
     error_folder.mkdir(parents=True, exist_ok=True)
     
     timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
@@ -516,9 +519,7 @@ def move_to_error(file_path: Path, error_folder: Path) -> Path:
 
 
 def get_statistics(db_manager: 'DatabaseConnectionManager') -> dict:
-    """
-    Get current hash_lookup statistics.
-    """
+    """Get current hash_lookup statistics."""
     stats = {}
     
     type_counts = db_manager.execute_query_dict("""
@@ -584,15 +585,12 @@ def extract_hash_from_unknown(value: str) -> Optional[str]:
     if not value or not isinstance(value, str):
         return None
     
-    # Check if it starts with "Unknown"
     if value.startswith('Unknown'):
-        # Pattern: Unknown (hash...) or Unknown
         match = re.search(r'Unknown \(([a-f0-9]+)\.\.\.?\)', value)
         if match:
             return match.group(1)
         return None
     
-    # If it's just a plain hash, return as-is
     if re.match(r'^[a-f0-9]{64}$', value):
         return value
     
@@ -633,7 +631,6 @@ def resolve_unknown_hashes(db_manager: 'DatabaseConnectionManager',
     log_filename = f"web_app_{datetime.now().strftime('%Y%m%d')}.log"
     log_file_path = LOG_DIR / log_filename
 
-    # Setup log files
     log_path = paths.get('log', Path('/mnt/data/noggin/log'))
     log_path.mkdir(parents=True, exist_ok=True)
     
@@ -649,7 +646,6 @@ def resolve_unknown_hashes(db_manager: 'DatabaseConnectionManager',
         'errors': 0
     }
     
-    # Query for records with Unknown values (excluding csv_imported)
     query = """
         SELECT tip, object_type, inspection_date, noggin_reference,
                vehicle_hash, vehicle, trailer_hash, trailer, 
@@ -675,11 +671,9 @@ def resolve_unknown_hashes(db_manager: 'DatabaseConnectionManager',
             logger.info("No records to process")
             return stats
         
-        # Initialize hash manager
         hash_manager = common.HashManager(config, db_manager)
-        hash_manager.invalidate_cache()  # Force reload from updated hash_lookup table
+        hash_manager.invalidate_cache()
         
-        # Process each record
         for record in records:
             stats['records_checked'] += 1
             tip = record['tip']
@@ -692,7 +686,6 @@ def resolve_unknown_hashes(db_manager: 'DatabaseConnectionManager',
             fields_resolved_this_record = []
             fields_unresolved_this_record = []
             
-            # Check each hash field
             hash_fields = [
                 ('vehicle_hash', 'vehicle', 'vehicle'),
                 ('trailer_hash', 'trailer', 'trailer'),
@@ -706,13 +699,11 @@ def resolve_unknown_hashes(db_manager: 'DatabaseConnectionManager',
                 text_value = record.get(text_col)
                 hash_value = record.get(hash_col)
                 
-                # Skip if text field doesn't start with Unknown or hash is missing
                 if not text_value or not hash_value:
                     continue
                 if not text_value.startswith('Unknown'):
                     continue
                 
-                # Try to resolve hash
                 resolved = hash_manager.lookup_hash(
                     lookup_type, 
                     hash_value, 
@@ -720,13 +711,11 @@ def resolve_unknown_hashes(db_manager: 'DatabaseConnectionManager',
                     inspection_id
                 )
                 
-                # Check if resolution succeeded (not "Unknown (...)")
                 if not resolved.startswith('Unknown'):
                     updates[text_col] = resolved
                     fields_resolved_this_record.append(f"{text_col}={resolved}")
                     stats['fields_resolved'] += 1
                     
-                    # Log to audit file
                     with open(audit_log_file, 'a', encoding='utf-8') as f:
                         timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
                         f.write(f"{timestamp} | {object_type} | {inspection_id} | "
@@ -735,13 +724,11 @@ def resolve_unknown_hashes(db_manager: 'DatabaseConnectionManager',
                     fields_unresolved_this_record.append(f"{text_col}={hash_value[:16]}...")
                     stats['fields_unresolved'] += 1
                     
-                    # Log to manual review file
                     with open(manual_review_file, 'a', encoding='utf-8') as f:
                         timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
                         f.write(f"{timestamp} | {object_type} | {inspection_id} | "
                                f"{text_col} | {lookup_type} | {hash_value}\n")
             
-            # Update database if any fields resolved
             if updates:
                 update_fields = ', '.join([f"{col} = %s" for col in updates.keys()])
                 update_query = f"""
@@ -755,7 +742,6 @@ def resolve_unknown_hashes(db_manager: 'DatabaseConnectionManager',
                     db_manager.execute_update(update_query, values)
                     logger.info(f"Updated {len(updates)} fields for {inspection_id}")
                     
-                    # Regenerate text file
                     if record.get('raw_json'):
                         try:
                             regenerate_text_file(
@@ -776,7 +762,6 @@ def resolve_unknown_hashes(db_manager: 'DatabaseConnectionManager',
             if fields_unresolved_this_record:
                 logger.warning(f"Unresolved: {', '.join(fields_unresolved_this_record)}")
         
-        # Summary
         logger.info("=" * 60)
         logger.info("HASH RESOLUTION SUMMARY")
         logger.info("=" * 60)
@@ -820,22 +805,15 @@ def regenerate_text_file(record: Dict[str, Any],
     from pathlib import Path
     from processors.report_generator import create_report_generator
     
-    # Parse raw JSON
     try:
         response_data = json.loads(record['raw_json'])
     except (json.JSONDecodeError, TypeError) as e:
         raise ValueError(f"Invalid JSON in raw_json field: {e}")
     
-    # Update response_data with resolved values
-    # The hash fields stay the same, but we need to ensure the report
-    # generator will use the resolved values from the database
-    # Actually, we should reload the config for the specific object type
-    
     object_type = record['object_type']
     inspection_id = record['noggin_reference']
     inspection_date = record['inspection_date']
     
-    # Load object-specific config
     object_configs = {
         'LCD': 'load_compliance_check_driver_loader_config.ini',
         'LCS': 'load_compliance_check_supervisor_manager_config.ini',
@@ -849,20 +827,15 @@ def regenerate_text_file(record: Dict[str, Any],
     if not config_filename:
         raise ValueError(f"Unknown object type: {object_type}")
     
-    # Determine config directory from base config path
     config_dir = config_file_path.parent
     obj_config_path = config_dir / config_filename
     
-    # Load config for this object type
     obj_config = common.ConfigLoader(str(obj_config_path))
     
-    # Create report generator
     report_gen = create_report_generator(obj_config, hash_manager)
     
-    # Generate report
     report = report_gen.generate_report(response_data, inspection_id)
     
-    # Calculate output path
     base_output_path = Path(config.get('paths', 'base_output_path', 
                                        fallback='/mnt/data/noggin/out'))
     
@@ -873,14 +846,12 @@ def regenerate_text_file(record: Dict[str, Any],
         year = 'unknown'
         month = 'unknown'
     
-    # Build folder path: base/object_type/year/month/date_inspection_id
     date_str = inspection_date.strftime('%Y-%m-%d') if inspection_date else 'unknown_date'
     folder_name = f"{date_str} {inspection_id}"
     
     inspection_folder = base_output_path / object_type / year / month / folder_name
     inspection_folder.mkdir(parents=True, exist_ok=True)
     
-    # Save report (this will overwrite existing file)
     date_iso = inspection_date.isoformat() if inspection_date else None
     report_gen.save_report(report, inspection_folder, inspection_id, date_iso)
 
@@ -927,36 +898,28 @@ Examples:
     
     args = parser.parse_args()
     
-    # Import dependencies here to allow --help without loading modules
     sys.path.insert(0, str(Path(__file__).parent))
     from common import ConfigLoader, LoggerManager, DatabaseConnectionManager
     
-    # Get default paths based on script location
     paths = get_default_paths()
     
-    # Load configuration
     config = ConfigLoader(str(args.config))
     
-    # Configure logging
     logger_manager = LoggerManager(config, script_name='hash_lookup_sync')
     logger_manager.configure_application_logger()
     
-    # Connect to database
     db_manager = DatabaseConnectionManager(config)
     
     try:
-        # Stats only mode
         if args.stats:
             stats = get_statistics(db_manager)
             print_statistics(stats)
             return 0
         
-        # Determine file sources
         asset_file: Optional[Path] = None
         site_file: Optional[Path] = None
         source_mode: str = ''
         
-        # Track records separately for reporting
         asset_records: list = []
         site_records: list = []
         
@@ -993,12 +956,10 @@ Examples:
             print("\nError: Specify --process-pending, --sftp, or both --asset-file and --site-file")
             return 1
         
-        # Validate we have at least one file
         if not asset_file and not site_file:
             logger.error("No valid files to process")
             return 1
         
-        # Load and process files
         logger.info("Starting hash lookup sync")
         
         all_records = []
@@ -1018,7 +979,7 @@ Examples:
         if site_file:
             try:
                 site_df = load_site_export(site_file)
-                site_records = process_sites(site_df)
+                site_records = process_sites(site_df, config)
                 all_records.extend(site_records)
                 processed_files.append(('site', site_file, True))
                 logger.info(f"Site records: {len(site_records)}")
@@ -1028,25 +989,23 @@ Examples:
         
         logger.info(f"Total records to sync: {len(all_records)}")
         
-        # Sync to database
         if args.dry_run:
             logger.info("Dry run mode - no database changes")
             print(f"\nDry run complete:")
             print(f"  Assets: {len(asset_records)}")
-            print(f"  Sites: {len(site_records)}")
-            print(f"  Total: {len(all_records)}")
+            print(f"  Sites:  {len(site_records)}")
+            print(f"  Total:  {len(all_records)}")
         else:
             if all_records:
                 inserted = sync_to_database(db_manager, all_records, truncate_first=True)
                 
                 print(f"\nSync complete:")
                 print(f"  Assets processed: {len(asset_records)}")
-                print(f"  Sites processed: {len(site_records)}")
-                print(f"  Total inserted: {inserted}")
+                print(f"  Sites processed:  {len(site_records)}")
+                print(f"  Total inserted:   {inserted}")
             else:
                 print("\nNo records to sync")
         
-        # Move processed files to appropriate folders
         if not args.no_archive and not args.dry_run:
             for file_type, file_path, success in processed_files:
                 if success:
@@ -1054,21 +1013,22 @@ Examples:
                 else:
                     move_to_error(file_path, paths['hash_sync_error'])
         
-        # Show final statistics
         if not args.dry_run and all_records:
             stats = get_statistics(db_manager)
             print_statistics(stats)
         
-        # Resolve unknown hashes if requested
         if args.resolve_unknown_hashes and not args.dry_run:
             logger.info("Starting unknown hash resolution process")
             resolution_stats = resolve_unknown_hashes(db_manager, config, paths, args.config)
             
             print("\nHash Resolution Summary:")
             print(f"  Records checked:      {resolution_stats['records_checked']}")
+            print()
             print(f"  Fields resolved:      {resolution_stats['fields_resolved']}")
             print(f"  Fields unresolved:    {resolution_stats['fields_unresolved']}")
+            print()
             print(f"  Reports regenerated:  {resolution_stats['reports_regenerated']}")
+            print()
             print(f"  Errors:               {resolution_stats['errors']}")
         
         return 0

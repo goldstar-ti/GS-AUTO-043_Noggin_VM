@@ -1,0 +1,389 @@
+{% extends "base.html" %}
+
+{% block title %}Utility - Noggin Processor{% endblock %}
+
+{% block content %}
+<h2 class="mb-4">Utility Tools</h2>
+
+<ul class="nav nav-tabs mb-4" role="tablist">
+    <li class="nav-item" role="presentation">
+        <button class="nav-link active" id="orphaned-tab" data-bs-toggle="tab" data-bs-target="#orphaned" type="button" role="tab">
+            Orphaned Hashes
+        </button>
+    </li>
+    <li class="nav-item" role="presentation">
+        <button class="nav-link" id="distribution-tab" data-bs-toggle="tab" data-bs-target="#distribution" type="button" role="tab">
+            Hash Distribution
+        </button>
+    </li>
+    <li class="nav-item" role="presentation">
+        <button class="nav-link" id="assignments-tab" data-bs-toggle="tab" data-bs-target="#assignments" type="button" role="tab">
+            Team/Dept Assignments
+        </button>
+    </li>
+</ul>
+
+<div class="tab-content">
+    <div class="tab-pane fade show active" id="orphaned" role="tabpanel">
+        <div class="card mb-4">
+            <div class="card-body">
+                <h5>Orphaned Hashes Summary</h5>
+                <p class="text-muted">Hashes in hash_lookup that do not appear in any noggin_data records</p>
+                
+                <div class="stats-grid mb-4">
+                    <div class="stat-card">
+                        <div class="stat-label">Vehicles</div>
+                        <div class="stat-number">{{ orphan_counts.vehicle }}</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-label">Trailers</div>
+                        <div class="stat-number">{{ orphan_counts.trailer }}</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-label">Teams</div>
+                        <div class="stat-number">{{ orphan_counts.team }}</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-label">Departments</div>
+                        <div class="stat-number">{{ orphan_counts.department }}</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="row">
+            <div class="col-md-6 mb-4">
+                <div class="card h-100">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <span>Orphaned Vehicles ({{ orphaned_vehicles|length }}{% if orphaned_vehicles|length >= 100 %}+{% endif %})</span>
+                        {% if orphaned_vehicles %}
+                        <a href="{{ url_for('export_orphaned_hashes', lookup_type='vehicle') }}" class="btn btn-sm btn-outline-primary">
+                            <i class="fas fa-download me-1"></i> Export
+                        </a>
+                        {% endif %}
+                    </div>
+                    <div class="card-body" style="max-height: 400px; overflow-y: auto;">
+                        {% if orphaned_vehicles %}
+                        <table class="table table-sm table-hover mb-0">
+                            <thead>
+                                <tr>
+                                    <th>Value</th>
+                                    <th>Source</th>
+                                    <th>Created</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for item in orphaned_vehicles %}
+                                <tr>
+                                    <td><code>{{ item.resolved_value }}</code></td>
+                                    <td><small>{{ item.source_type or '-' }}</small></td>
+                                    <td><small>{{ item.created_at.strftime('%d %b %Y') if item.created_at else '-' }}</small></td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                        {% else %}
+                        <p class="text-muted text-center py-4 mb-0">No orphaned vehicle hashes</p>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-md-6 mb-4">
+                <div class="card h-100">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <span>Orphaned Trailers ({{ orphaned_trailers|length }}{% if orphaned_trailers|length >= 100 %}+{% endif %})</span>
+                        {% if orphaned_trailers %}
+                        <a href="{{ url_for('export_orphaned_hashes', lookup_type='trailer') }}" class="btn btn-sm btn-outline-primary">
+                            <i class="fas fa-download me-1"></i> Export
+                        </a>
+                        {% endif %}
+                    </div>
+                    <div class="card-body" style="max-height: 400px; overflow-y: auto;">
+                        {% if orphaned_trailers %}
+                        <table class="table table-sm table-hover mb-0">
+                            <thead>
+                                <tr>
+                                    <th>Value</th>
+                                    <th>Source</th>
+                                    <th>Created</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for item in orphaned_trailers %}
+                                <tr>
+                                    <td><code>{{ item.resolved_value }}</code></td>
+                                    <td><small>{{ item.source_type or '-' }}</small></td>
+                                    <td><small>{{ item.created_at.strftime('%d %b %Y') if item.created_at else '-' }}</small></td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                        {% else %}
+                        <p class="text-muted text-center py-4 mb-0">No orphaned trailer hashes</p>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-md-6 mb-4">
+                <div class="card h-100">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <span>Orphaned Teams ({{ orphaned_teams|length }}{% if orphaned_teams|length >= 100 %}+{% endif %})</span>
+                        {% if orphaned_teams %}
+                        <a href="{{ url_for('export_orphaned_hashes', lookup_type='team') }}" class="btn btn-sm btn-outline-primary">
+                            <i class="fas fa-download me-1"></i> Export
+                        </a>
+                        {% endif %}
+                    </div>
+                    <div class="card-body" style="max-height: 400px; overflow-y: auto;">
+                        {% if orphaned_teams %}
+                        <table class="table table-sm table-hover mb-0">
+                            <thead>
+                                <tr>
+                                    <th>Value</th>
+                                    <th>Source</th>
+                                    <th>Created</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for item in orphaned_teams %}
+                                <tr>
+                                    <td><code>{{ item.resolved_value }}</code></td>
+                                    <td><small>{{ item.source_type or '-' }}</small></td>
+                                    <td><small>{{ item.created_at.strftime('%d %b %Y') if item.created_at else '-' }}</small></td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                        {% else %}
+                        <p class="text-muted text-center py-4 mb-0">No orphaned team hashes</p>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-md-6 mb-4">
+                <div class="card h-100">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <span>Orphaned Departments ({{ orphaned_depts|length }}{% if orphaned_depts|length >= 100 %}+{% endif %})</span>
+                        {% if orphaned_depts %}
+                        <a href="{{ url_for('export_orphaned_hashes', lookup_type='department') }}" class="btn btn-sm btn-outline-primary">
+                            <i class="fas fa-download me-1"></i> Export
+                        </a>
+                        {% endif %}
+                    </div>
+                    <div class="card-body" style="max-height: 400px; overflow-y: auto;">
+                        {% if orphaned_depts %}
+                        <table class="table table-sm table-hover mb-0">
+                            <thead>
+                                <tr>
+                                    <th>Value</th>
+                                    <th>Source</th>
+                                    <th>Created</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for item in orphaned_depts %}
+                                <tr>
+                                    <td><code>{{ item.resolved_value }}</code></td>
+                                    <td><small>{{ item.source_type or '-' }}</small></td>
+                                    <td><small>{{ item.created_at.strftime('%d %b %Y') if item.created_at else '-' }}</small></td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                        {% else %}
+                        <p class="text-muted text-center py-4 mb-0">No orphaned department hashes</p>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="tab-pane fade" id="distribution" role="tabpanel">
+        <div class="card">
+            <div class="card-header">
+                Hash Distribution by Type and Source
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-hover mb-0">
+                        <thead>
+                            <tr>
+                                <th>Lookup Type</th>
+                                <th>Source Type</th>
+                                <th>Count</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for item in distribution %}
+                            <tr>
+                                <td><strong>{{ item.lookup_type }}</strong></td>
+                                <td>{{ item.source_type or '(none)' }}</td>
+                                <td>{{ item.count }}</td>
+                            </tr>
+                            {% else %}
+                            <tr>
+                                <td colspan="3" class="text-center py-4">No hash data available</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="tab-pane fade" id="assignments" role="tabpanel">
+        <div class="row mb-4">
+            <div class="col-lg-6 mb-4">
+                <div class="card h-100">
+                    <div class="card-header">
+                        Team Summary
+                    </div>
+                    <div class="card-body" style="max-height: 400px; overflow-y: auto;">
+                        <div class="table-responsive">
+                            <table class="table table-sm table-hover mb-0">
+                                <thead>
+                                    <tr>
+                                        <th>Team</th>
+                                        <th>Vehicles</th>
+                                        <th>Drivers</th>
+                                        <th>Records</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for item in team_assignments %}
+                                    <tr>
+                                        <td><strong>{{ item.team }}</strong></td>
+                                        <td>{{ item.vehicle_count }}</td>
+                                        <td>{{ item.driver_count }}</td>
+                                        <td>{{ item.record_count }}</td>
+                                    </tr>
+                                    {% else %}
+                                    <tr>
+                                        <td colspan="4" class="text-center py-4">No team data available</td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-lg-6 mb-4">
+                <div class="card h-100">
+                    <div class="card-header">
+                        Department Summary
+                    </div>
+                    <div class="card-body" style="max-height: 400px; overflow-y: auto;">
+                        <div class="table-responsive">
+                            <table class="table table-sm table-hover mb-0">
+                                <thead>
+                                    <tr>
+                                        <th>Department</th>
+                                        <th>Vehicles</th>
+                                        <th>Drivers</th>
+                                        <th>Records</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for item in dept_assignments %}
+                                    <tr>
+                                        <td><strong>{{ item.department }}</strong></td>
+                                        <td>{{ item.vehicle_count }}</td>
+                                        <td>{{ item.driver_count }}</td>
+                                        <td>{{ item.record_count }}</td>
+                                    </tr>
+                                    {% else %}
+                                    <tr>
+                                        <td colspan="4" class="text-center py-4">No department data available</td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="row">
+            <div class="col-lg-6 mb-4">
+                <div class="card h-100">
+                    <div class="card-header">
+                        Vehicles by Team
+                    </div>
+                    <div class="card-body" style="max-height: 500px; overflow-y: auto;">
+                        <div class="table-responsive">
+                            <table class="table table-sm table-hover mb-0">
+                                <thead>
+                                    <tr>
+                                        <th>Team</th>
+                                        <th>Vehicle</th>
+                                        <th>Records</th>
+                                        <th>Last Seen</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for item in team_vehicles %}
+                                    <tr>
+                                        <td>{{ item.team }}</td>
+                                        <td><code>{{ item.vehicle }}</code></td>
+                                        <td>{{ item.record_count }}</td>
+                                        <td><small>{{ item.last_seen.strftime('%d %b %Y') if item.last_seen else '-' }}</small></td>
+                                    </tr>
+                                    {% else %}
+                                    <tr>
+                                        <td colspan="4" class="text-center py-4">No vehicle assignments found</td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-lg-6 mb-4">
+                <div class="card h-100">
+                    <div class="card-header">
+                        Drivers by Team
+                    </div>
+                    <div class="card-body" style="max-height: 500px; overflow-y: auto;">
+                        <div class="table-responsive">
+                            <table class="table table-sm table-hover mb-0">
+                                <thead>
+                                    <tr>
+                                        <th>Team</th>
+                                        <th>Driver</th>
+                                        <th>Records</th>
+                                        <th>Last Seen</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for item in team_drivers %}
+                                    <tr>
+                                        <td>{{ item.team }}</td>
+                                        <td>{{ item.driver }}</td>
+                                        <td>{{ item.record_count }}</td>
+                                        <td><small>{{ item.last_seen.strftime('%d %b %Y') if item.last_seen else '-' }}</small></td>
+                                    </tr>
+                                    {% else %}
+                                    <tr>
+                                        <td colspan="4" class="text-center py-4">No driver assignments found</td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

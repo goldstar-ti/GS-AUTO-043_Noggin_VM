@@ -1,0 +1,101 @@
+{% extends "base.html" %}
+
+{% block title %}Compliance Summary - Reports{% endblock %}
+
+{% block content %}
+<div class="mb-4">
+    <a href="{{ url_for('reports') }}" class="back-link">
+        <i class="fas fa-arrow-left me-1"></i> Back to Reports
+    </a>
+</div>
+
+<h2 class="mb-4">Compliance Summary (Last 30 Days)</h2>
+
+<div class="card mb-4">
+    <div class="card-header">
+        Overall Summary by Object Type
+    </div>
+    <div class="card-body">
+        <div class="table-responsive">
+            <table class="table table-hover mb-0">
+                <thead>
+                    <tr>
+                        <th>Object Type</th>
+                        <th>Total Records</th>
+                        <th>Compliant</th>
+                        <th>Non-Compliant</th>
+                        <th>Compliance Rate</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in summary %}
+                    <tr>
+                        <td><strong>{{ item.object_type }}</strong></td>
+                        <td>{{ item.total }}</td>
+                        <td><span class="text-success">{{ item.compliant or 0 }}</span></td>
+                        <td><span class="text-danger">{{ item.non_compliant or 0 }}</span></td>
+                        <td>
+                            {% set rate = ((item.compliant or 0) / item.total * 100) if item.total > 0 else 0 %}
+                            {% if rate >= 95 %}
+                                <span class="badge bg-success">{{ "%.1f"|format(rate) }}%</span>
+                            {% elif rate >= 80 %}
+                                <span class="badge bg-warning text-dark">{{ "%.1f"|format(rate) }}%</span>
+                            {% else %}
+                                <span class="badge bg-danger">{{ "%.1f"|format(rate) }}%</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="5" class="text-center py-4">No compliance data available</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-header">
+        Daily Breakdown by Team
+    </div>
+    <div class="card-body">
+        <div class="table-responsive">
+            <table class="table table-sm table-hover mb-0">
+                <thead>
+                    <tr>
+                        <th>Date</th>
+                        <th>Object Type</th>
+                        <th>Team</th>
+                        <th>Total</th>
+                        <th>Compliant</th>
+                        <th>Non-Compliant</th>
+                        <th>Rate</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in compliance_data %}
+                    <tr>
+                        <td>{{ item.date.strftime('%d %b %Y') if item.date else '-' }}</td>
+                        <td><small>{{ item.object_type }}</small></td>
+                        <td>{{ item.team or '-' }}</td>
+                        <td>{{ item.total }}</td>
+                        <td><span class="text-success">{{ item.compliant or 0 }}</span></td>
+                        <td><span class="text-danger">{{ item.non_compliant or 0 }}</span></td>
+                        <td>
+                            {% set rate = ((item.compliant or 0) / item.total * 100) if item.total > 0 else 0 %}
+                            <small>{{ "%.0f"|format(rate) }}%</small>
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="7" class="text-center py-4">No compliance data available for the period</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

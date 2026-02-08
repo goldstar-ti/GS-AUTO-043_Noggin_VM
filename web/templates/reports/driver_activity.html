@@ -1,0 +1,118 @@
+{% extends "base.html" %}
+
+{% block title %}Driver Activity - Reports{% endblock %}
+
+{% block content %}
+<div class="mb-4">
+    <a href="{{ url_for('reports') }}" class="back-link">
+        <i class="fas fa-arrow-left me-1"></i> Back to Reports
+    </a>
+</div>
+
+<h2 class="mb-4">Driver Activity Report</h2>
+
+<div class="card mb-4">
+    <div class="card-body">
+        <form method="get" class="row g-3">
+            <div class="col-md-4">
+                <label for="driver" class="form-label">Driver</label>
+                <input list="drivers" name="driver" id="driver" class="form-control" 
+                       placeholder="Select or type driver name" value="{{ driver }}">
+                <datalist id="drivers">
+                    {% for d in options.drivers %}
+                        <option value="{{ d }}">
+                    {% endfor %}
+                </datalist>
+            </div>
+            <div class="col-md-3">
+                <label for="date_from" class="form-label">From Date</label>
+                <input type="date" name="date_from" id="date_from" class="form-control" value="{{ date_from }}">
+            </div>
+            <div class="col-md-3">
+                <label for="date_to" class="form-label">To Date</label>
+                <input type="date" name="date_to" id="date_to" class="form-control" value="{{ date_to }}">
+            </div>
+            <div class="col-md-2 d-flex align-items-end">
+                <button type="submit" class="btn btn-primary w-100">Search</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+{% if driver %}
+    {% if summary %}
+    <div class="stats-grid mb-4">
+        <div class="stat-card">
+            <div class="stat-label">Total Records</div>
+            <div class="stat-number">{{ summary.total or 0 }}</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-label">Unique Vehicles</div>
+            <div class="stat-number">{{ summary.unique_vehicles or 0 }}</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-label">Unique Teams</div>
+            <div class="stat-number">{{ summary.unique_teams or 0 }}</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-label">Date Range</div>
+            <div class="stat-number" style="font-size: 1rem;">
+                {{ summary.first_record.strftime('%d %b %y') if summary.first_record else '-' }}
+                -
+                {{ summary.last_record.strftime('%d %b %y') if summary.last_record else '-' }}
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+<div class="card">
+    <div class="card-header">
+        Records for driver: <strong>{{ driver }}</strong> ({{ records|length }} results)
+    </div>
+    <div class="card-body">
+        <div class="table-responsive">
+            <table class="table table-hover mb-0">
+                <thead>
+                    <tr>
+                        <th>Reference</th>
+                        <th>Type</th>
+                        <th>Date</th>
+                        <th>Vehicle</th>
+                        <th>Trailer</th>
+                        <th>Team</th>
+                        <th>Status</th>
+                        <th>Attachments</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for record in records %}
+                    <tr>
+                        <td>{{ record.noggin_reference or record.tip[:12] }}</td>
+                        <td><small>{{ record.object_type }}</small></td>
+                        <td>{{ record.inspection_date.strftime('%d %b %Y') if record.inspection_date else '-' }}</td>
+                        <td>{{ record.vehicle or '-' }}</td>
+                        <td>{{ record.trailer or '-' }}</td>
+                        <td>{{ record.team or '-' }}</td>
+                        <td><span class="badge badge-status-{{ record.processing_status }}">{{ record.processing_status }}</span></td>
+                        <td>{{ record.completed_attachment_count or 0 }}/{{ record.total_attachments or 0 }}</td>
+                        <td>
+                            <a href="{{ url_for('record_detail', tip=record.tip) }}" class="btn btn-sm btn-primary">View</a>
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="9" class="text-center py-4">No records found for this driver</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% else %}
+<div class="alert alert-info">
+    Select a driver above to view activity records
+</div>
+{% endif %}
+{% endblock %}

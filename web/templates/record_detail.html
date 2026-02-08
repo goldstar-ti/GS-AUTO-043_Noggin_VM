@@ -1,0 +1,319 @@
+{% extends "base.html" %}
+
+{% block title %}{{ type_label }} - {{ inspection_id }}{% endblock %}
+
+{% block content %}
+<div class="inspection-detail-page">
+    
+    <div class="detail-header">
+        <div class="mb-2">
+            <a href="{{ url_for('records') }}" class="back-link">
+                <i class="fas fa-arrow-left me-1"></i> Back to Records
+            </a>
+        </div>
+        <div class="d-flex justify-content-between align-items-center flex-wrap gap-3">
+            <div>
+                <h1 class="detail-title">{{ inspection_id }}</h1>
+                <p class="detail-subtitle mb-0">{{ full_type_name }}</p>
+            </div>
+            <div class="d-flex gap-2 flex-wrap">
+                <button onclick="window.print()" class="btn btn-outline-secondary">
+                    <i class="fas fa-print me-1"></i> Print
+                </button>
+                <a href="{{ url_for('download_eml', tip=inspection.tip) }}" class="btn btn-dark">
+                    <i class="fas fa-envelope-open-text me-1"></i> Download .EML
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-lg-8">
+            
+            {% for section in display_data.sections %}
+            {# Skip department field if hide_department is true and this is a job_details section #}
+            <div class="details-card {% if section.collapsible %}collapsible-section{% endif %}">
+                <div class="card-header-custom d-flex justify-content-between align-items-center"
+                     {% if section.collapsible %}
+                     data-bs-toggle="collapse" 
+                     data-bs-target="#section-{{ section.key }}"
+                     aria-expanded="{{ 'false' if section.collapsed_default else 'true' }}"
+                     style="cursor: pointer;"
+                     {% endif %}>
+                    <span>
+                        <i class="fas fa-list-alt me-2"></i>{{ section.title }}
+                    </span>
+                    {% if section.collapsible %}
+                    <i class="fas fa-chevron-down collapse-icon"></i>
+                    {% endif %}
+                </div>
+                <div class="{% if section.collapsible %}collapse {% if not section.collapsed_default %}show{% endif %}{% endif %}" 
+                     id="section-{{ section.key }}">
+                    <div class="card-body-custom">
+                        {% if section.fields %}
+                            {% for field in section.fields %}
+                            {# Hide department if same as team #}
+                            {% if not (hide_department and field.label == 'Department') %}
+                            <div class="field-row">
+                                <div class="field-label">{{ field.label }}</div>
+                                <div class="field-value">
+                                    {% if field.is_bool %}
+                                        {% if field.bool_value == true or field.value == 'Yes' %}
+                                            <span class="badge bg-success">Yes</span>
+                                        {% elif field.bool_value == false or field.value == 'No' %}
+                                            <span class="badge bg-secondary">No</span>
+                                        {% else %}
+                                            <span class="text-muted">-</span>
+                                        {% endif %}
+                                    {% else %}
+                                        {{ field.value or '-' }}
+                                    {% endif %}
+                                </div>
+                            </div>
+                            {% endif %}
+                            {% endfor %}
+                        {% else %}
+                            <p class="text-muted mb-0 py-2">No data available for this section.</p>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+
+            {% if display_data.metadata %}
+            <div class="details-card collapsible-section no-print">
+                <div class="card-header-custom d-flex justify-content-between align-items-center"
+                     data-bs-toggle="collapse" 
+                     data-bs-target="#section-metadata"
+                     aria-expanded="false"
+                     style="cursor: pointer;">
+                    <span>
+                        <i class="fas fa-database me-2"></i>API Metadata
+                    </span>
+                    <i class="fas fa-chevron-down collapse-icon"></i>
+                </div>
+                <div class="collapse" id="section-metadata">
+                    <div class="card-body-custom">
+                        {% for field in display_data.metadata %}
+                        <div class="field-row">
+                            <div class="field-label">{{ field.label }}</div>
+                            <div class="field-value text-break">
+                                <small class="text-muted">{{ field.value }}</small>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+
+            {% if display_data.raw_data_available %}
+            <div class="details-card collapsible-section no-print">
+                <div class="card-header-custom d-flex justify-content-between align-items-center"
+                     data-bs-toggle="collapse" 
+                     data-bs-target="#section-rawdata"
+                     aria-expanded="false"
+                     style="cursor: pointer;">
+                    <span>
+                        <i class="fas fa-code me-2"></i>Raw JSON Data
+                    </span>
+                    <i class="fas fa-chevron-down collapse-icon"></i>
+                </div>
+                <div class="collapse" id="section-rawdata">
+                    <div class="card-body-custom">
+                        <pre class="raw-json-display">{{ inspection.raw_data | tojson(indent=2) if inspection.raw_data else 'No raw data available' }}</pre>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+
+            {% if errors %}
+            <div class="details-card">
+                <div class="card-header-custom text-danger">
+                    <i class="fas fa-exclamation-triangle me-2"></i> Processing Errors
+                </div>
+                <div class="card-body-custom">
+                    {% for error in errors %}
+                    <div class="field-row">
+                        <div class="field-label">
+                            {{ error.error_type }}<br>
+                            <small class="text-muted">{{ error.created_at.strftime('%d %b %Y %H:%M') if error.created_at else '' }}</small>
+                        </div>
+                        <div class="field-value text-danger">{{ error.error_message }}</div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endif %}
+
+        </div>
+
+        <div class="col-lg-4">
+            
+            <div class="details-card">
+                <div class="card-header-custom">
+                    <i class="fas fa-paperclip me-2"></i> Attachments ({{ attachments|length }})
+                </div>
+                <div class="card-body-custom pt-3">
+                    {% if attachments %}
+                        <div class="attachment-grid">
+                        {% for att in attachments %}
+                            <div class="attachment-card {% if att.is_image %}has-thumbnail{% endif %}">
+                                {% if att.is_image and att.attachment_status == 'complete' %}
+                                <div class="attachment-thumbnail" 
+                                     onclick="openAttachment('{{ att.attachment_tip }}', '{{ att.filename }}')"
+                                     style="cursor: pointer;">
+                                    <img src="{{ url_for('serve_thumbnail', tip=inspection.tip, attachment_tip=att.attachment_tip) }}" 
+                                         alt="{{ att.filename }}"
+                                         loading="lazy">
+                                </div>
+                                {% endif %}
+                                <div class="attachment-info">
+                                    <div class="attachment-name" title="{{ att.filename }}">{{ att.filename }}</div>
+                                    <div class="attachment-meta">
+                                        {% if att.file_size_bytes %}
+                                            {{ (att.file_size_bytes / 1024)|round(1) }} KB
+                                        {% endif %}
+                                        {% if att.attachment_status != 'complete' %}
+                                            <span class="badge bg-warning text-dark ms-1">{{ att.attachment_status }}</span>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                                <div class="attachment-actions">
+                                    {% if att.attachment_status == 'complete' %}
+                                    <button class="btn btn-sm btn-outline-primary" 
+                                            onclick="openAttachment('{{ att.attachment_tip }}', '{{ att.filename }}')">
+                                        <i class="fas fa-eye"></i>
+                                    </button>
+                                    <a href="{{ url_for('serve_attachment', tip=inspection.tip, attachment_tip=att.attachment_tip) }}" 
+                                       class="btn btn-sm btn-outline-secondary" download>
+                                        <i class="fas fa-download"></i>
+                                    </a>
+                                    {% else %}
+                                    <span class="text-muted small">Pending</span>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        {% endfor %}
+                        </div>
+                    {% else %}
+                        <p class="text-muted text-center py-4 mb-0">No attachments found.</p>
+                    {% endif %}
+                </div>
+            </div>
+
+            <div class="details-card">
+                <div class="card-header-custom">
+                    <i class="fas fa-info-circle me-2"></i> Processing Status
+                </div>
+                <div class="card-body-custom pt-3">
+                    <div class="field-row">
+                        <div class="field-label">Status</div>
+                        <div class="field-value">
+                            <span class="badge badge-status-{{ inspection.processing_status }}">
+                                {{ inspection.processing_status }}
+                            </span>
+                        </div>
+                    </div>
+                    <div class="field-row">
+                        <div class="field-label">Retry Count</div>
+                        <div class="field-value">{{ inspection.retry_count or 0 }}</div>
+                    </div>
+                    <div class="field-row">
+                        <div class="field-label">Last Updated</div>
+                        <div class="field-value">
+                            {{ inspection.updated_at.strftime('%d %b %Y %H:%M') if inspection.updated_at else 'N/A' }}
+                        </div>
+                    </div>
+                    <div class="field-row no-print">
+                        <div class="field-label">Record TIP</div>
+                        <div class="field-value">
+                            <small class="text-muted text-break">{{ inspection.tip }}</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </div>
+    
+    <div class="print-images-section">
+        <h3 class="print-section-title">Attachment Images</h3>
+        {% for att in attachments %}
+            {% if att.is_image and att.attachment_status == 'complete' %}
+            <div class="print-image-container">
+                <img src="{{ url_for('serve_attachment', tip=inspection.tip, attachment_tip=att.attachment_tip) }}" 
+                     alt="{{ att.filename }}"
+                     class="print-image">
+                <p class="print-image-caption">{{ att.filename }}</p>
+            </div>
+            {% endif %}
+        {% endfor %}
+    </div>
+</div>
+
+<div class="modal fade" id="attachmentModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-xl modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="attachmentModalLabel">Attachment</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body p-0 modal-content-wrapper" id="modalBody">
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    const inspectionTip = "{{ inspection.tip }}";
+
+    function openAttachment(attachmentTip, filename) {
+        const modalEl = document.getElementById('attachmentModal');
+        const modalBody = document.getElementById('modalBody');
+        const modalTitle = document.getElementById('attachmentModalLabel');
+        
+        modalTitle.textContent = filename;
+        modalBody.innerHTML = '<div class="d-flex justify-content-center align-items-center p-5"><div class="spinner-border text-primary" role="status"><span class="visually-hidden">Loading</span></div></div>';
+        
+        const modal = new bootstrap.Modal(modalEl);
+        modal.show();
+
+        const ext = filename.split('.').pop().toLowerCase();
+        const url = `/record/${inspectionTip}/attachment/${attachmentTip}`;
+        
+        setTimeout(() => {
+            let content = '';
+            
+            if (['jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp'].includes(ext)) {
+                content = `<img src="${url}" id="modalImage" alt="${filename}" style="max-width: 100%; max-height: 80vh;">`;
+            } else if (ext === 'pdf') {
+                content = `<iframe src="${url}" style="width: 100%; height: 80vh; border: none;"></iframe>`;
+            } else if (ext === 'txt') {
+                content = `<iframe src="${url}" style="width: 100%; height: 60vh; border: none; background: white;"></iframe>`;
+            } else {
+                content = `
+                    <div class="text-center p-5">
+                        <i class="fas fa-file-download fa-3x text-muted mb-3"></i>
+                        <h5 class="mb-3">Preview not available</h5>
+                        <p>This file type (.${ext}) cannot be previewed in the browser.</p>
+                        <a href="${url}" class="btn btn-primary px-4" download>Download File</a>
+                    </div>
+                `;
+            }
+            modalBody.innerHTML = content;
+        }, 200);
+    }
+
+    document.querySelectorAll('[data-bs-toggle="collapse"]').forEach(function(el) {
+        el.addEventListener('click', function() {
+            const icon = this.querySelector('.collapse-icon');
+            if (icon) {
+                icon.classList.toggle('rotated');
+            }
+        });
+    });
+</script>
+{% endblock %}

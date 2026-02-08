@@ -4,11 +4,11 @@
 │   ├── [Jan 29 17:31]  config.py
 │   ├── [Jan 18 17:02]  csv_importer.py
 │   ├── [Jan 11 16:51]  database.py
-│   ├── [Jan 22 19:16]  hash_manager.py
+│   ├── [Feb  4 18:25]  hash_manager.py
 │   ├── [Jan 14 09:39]  __init__.py
 │   ├── [Jan 12 16:43]  logger.py
 │   ├── [Jan 14 09:47]  object_types.py
-│   ├── [Jan 29 17:44]  __pycache__
+│   ├── [Feb  4 18:25]  __pycache__
 │   │   ├── [Jan 14 12:06]  config.cpython-312.pyc
 │   │   ├── [Jan 29 17:44]  config.cpython-314.pyc
 │   │   ├── [Jan 18 17:05]  csv_importer.cpython-312.pyc
@@ -16,7 +16,7 @@
 │   │   ├── [Jan 11 19:02]  database.cpython-312.pyc
 │   │   ├── [Jan 23 19:10]  database.cpython-314.pyc
 │   │   ├── [Jan 22 19:16]  hash_manager.cpython-312.pyc
-│   │   ├── [Jan 23 19:10]  hash_manager.cpython-314.pyc
+│   │   ├── [Feb  4 18:25]  hash_manager.cpython-314.pyc
 │   │   ├── [Jan 14 09:45]  __init__.cpython-312.pyc
 │   │   ├── [Jan 23 19:10]  __init__.cpython-314.pyc
 │   │   ├── [Jan 12 17:01]  logger.cpython-312.pyc
@@ -28,13 +28,13 @@
 │   └── [Jan 11 16:51]  rate_limiter.py
 ├── [Jan 11 18:01]  config
 │   ├── [Feb  1 17:05]  base_config.ini
-│   ├── [Jan 14 13:05]  coupling_compliance_check_config.ini
-│   ├── [Jan 14 13:05]  forklift_prestart_inspection_config.ini
-│   ├── [Jan 14 13:05]  load_compliance_check_driver_loader_config.ini
-│   ├── [Jan 14 13:05]  load_compliance_check_supervisor_manager_config.ini
+│   ├── [Feb  4 14:12]  coupling_compliance_check_config.ini
+│   ├── [Feb  4 14:15]  forklift_prestart_inspection_config.ini
+│   ├── [Feb  4 14:13]  load_compliance_check_driver_loader_config.ini
+│   ├── [Feb  4 14:14]  load_compliance_check_supervisor_manager_config.ini
 │   ├── [Jan 12 15:24]  sftp_config.ini
-│   ├── [Jan 14 13:05]  site_observations_config.ini
-│   └── [Jan 14 13:05]  trailer_audits_config.ini
+│   ├── [Feb  4 14:13]  site_observations_config.ini
+│   └── [Feb  4 14:15]  trailer_audits_config.ini
 ├── [Feb  1 17:36]  docs
 │   ├── [Oct 22 19:01]  _create_service_todo.md
 │   ├── [Jan 14 22:56]  noggin_db_bvackupu_columns_202601142256.json
@@ -42,13 +42,13 @@
 │   ├── [Jan 13 11:38]  noggin_sample_payloads_20260113_113816.json
 │   ├── [Jan 31 13:03]  noggin_schema.md
 │   ├── [Jan 31 12:58]  noggin_schema.sql
-│   ├── [Feb  1 17:36]  repomix-output.md
+│   ├── [Feb  4 13:05]  repomix-output.md
 │   ├── [Jan 31 13:07]  swagger.json
 │   ├── [Jan 10 13:07]  system_context.txt
 │   ├── [Jan 18 18:36]  TODO.md
-│   ├── [Feb  3 19:06]  tree_structure.txt
+│   ├── [Feb  4 20:41]  tree_structure.txt
 │   └── [Jan 15 00:09]  web_interface_environment.txt
-├── [Jan 23 11:29]  hash_lookup_sync.py
+├── [Feb  4 18:24]  hash_lookup_sync.py
 ├── [Jan 18 17:01]  import_csv_tips.py
 ├── [Oct 22 18:44]  manage_continuous_service.sh
 ├── [Jan 11 16:51]  manage_hashes.py
@@ -67,31 +67,38 @@
 ├── [Jan 14 08:07]  noggin_processor_unified.py
 ├── [Oct 23 11:04]  package.json
 ├── [Oct 23 11:04]  package-lock.json
-├── [Jan 13 11:05]  processors
-│   ├── [Jan 14 12:52]  base_processor.py
+├── [Feb  4 14:09]  processors
+│   ├── [Feb  4 14:09]  attachment_extractor.py
+│   ├── [Feb  4 14:11]  base_processor.py
 │   ├── [Jan 14 11:29]  field_processor.py
-│   ├── [Jan 10 16:48]  __init__.py
-│   ├── [Jan 14 12:05]  object_processor.py
-│   ├── [Jan 26 22:29]  __pycache__
+│   ├── [Feb  4 14:16]  __init__.py
+│   ├── [Feb  4 14:11]  object_processor.py
+│   ├── [Feb  4 14:22]  __pycache__
+│   │   ├── [Feb  4 14:22]  attachment_extractor.cpython-314.pyc
 │   │   ├── [Jan 14 12:52]  base_processor.cpython-312.pyc
-│   │   ├── [Jan 26 22:29]  base_processor.cpython-314.pyc
+│   │   ├── [Feb  4 14:22]  base_processor.cpython-314.pyc
 │   │   ├── [Jan 14 11:33]  field_processor.cpython-312.pyc
 │   │   ├── [Jan 26 22:29]  field_processor.cpython-314.pyc
 │   │   ├── [Jan 13 11:05]  __init__.cpython-312.pyc
-│   │   ├── [Jan 26 22:29]  __init__.cpython-314.pyc
+│   │   ├── [Feb  4 14:22]  __init__.cpython-314.pyc
 │   │   ├── [Jan 14 12:06]  object_processor.cpython-312.pyc
-│   │   ├── [Jan 26 22:29]  object_processor.cpython-314.pyc
+│   │   ├── [Feb  4 14:22]  object_processor.cpython-314.pyc
 │   │   ├── [Jan 14 12:06]  report_generator.cpython-312.pyc
 │   │   └── [Jan 26 22:29]  report_generator.cpython-314.pyc
 │   └── [Jan 14 12:04]  report_generator.py
 ├── [Jan 21 20:05]  __pycache__
 │   └── [Jan 21 20:05]  sftp_download_tips.cpython-312.pyc
 ├── [Jan 23 18:06]  requirements.txt
-├── [Jan 29 18:31]  scratch
+├── [Feb  4 13:59]  scratch
 │   ├── [Jan 13 11:37]  fetch_noggin_samples.py
 │   ├── [Jan 22 12:09]  hash_resolution_implementation.md
 │   ├── [Jan 29 18:39]  lcd_null_column_backfill.py
-│   └── [Jan 29 18:31]  noggin_db_bvackupu_hash_lookup_202601291831.csv
+│   ├── [Jan 29 18:31]  noggin_db_bvackupu_hash_lookup_202601291831.csv
+│   ├── [Feb  3 20:59]  noggin_sample_payloads_20260203_205938.json
+│   └── [Feb  4 14:00]  update_unknown_team
+│       ├── [Feb  3 21:43]  exported-file-bc1eb447-489c-434a-a0c7-412e177f72b6 (2).csv
+│       ├── [Feb  4 14:02]  update_unknown_team.py
+│       └── [Feb  4 14:02]  upsert_teams.sql
 ├── [Jan 11 19:10]  service_dashboard.py
 ├── [Jan 14 09:39]  sftp_download_tips.py
 ├── [Jan 21 19:47]  sys
@@ -132,4 +139,4 @@
         ├── [Jan 30 00:42]  inspections.html
         └── [Jan 30 00:42]  service_status.html
 
-20 directories, 113 files
+21 directories, 119 files
