@@ -230,7 +230,10 @@ cmd_health() {
 }
 
 cmd_dashboard() {
-    echo "=== Noggin Services Status ==="
+    echo "======================"
+    echo "Noggin Services Status"
+    echo "======================"
+    echo ""
     echo ""
     
     for service in noggin-web noggin-processor; do
@@ -282,17 +285,41 @@ cmd_dashboard() {
 # Menu display
 
 show_menu() {
-    echo "=== Noggin Service Management ==="
+    echo ""
+    echo "Tip: You can also run commands directly from the command line:"
+    echo "    ./manage_services.sh <service> <command>"
+    echo "    Example: ./manage_services.sh noggin-web restart"
+    echo ""
+    echo "Available commands:"
+    echo "   start, stop, restart, status, enable, disable,"
+    echo "   logs, follow, errors, errors-priority, logs-1d, logs-3d, logs-7d,"
+    echo "   dependencies, environment, health, dashboard, reload"
+    echo ""
+    echo ""
+    echo ""
+    echo "███╗   ██╗ ██████╗ ██████╗ ██████╗ ██╗███████╗";
+    echo "████╗  ██║██╔═══██╗██╔══██╗██╔══██╗██║██╔════╝";
+    echo "██╔██╗ ██║██║   ██║██████╔╝██████╔╝██║█████╗  ";
+    echo "██║╚██╗██║██║   ██║██╔══██╗██╔══██╗██║██╔══╝  ";
+    echo "██║ ╚████║╚██████╔╝██████╔╝██████╔╝██║███████╗";
+    echo "╚═╝  ╚═══╝ ╚═════╝ ╚═════╝ ╚═════╝ ╚═╝╚══════╝";
+    echo ""
+    echo ""
+    echo "N o g g i n   O b j e c t   B i n a r y   B a c k u p   &   I n g e s t i o n   E n g i n e"
+    echo ""
+    echo "=================="
+    echo "Service Management"
+    echo "=================="
     echo ""
     
     local index=1
     
     # noggin-web commands
+    echo "${index}. noggin-web restart"
+    ((index++))
     echo "${index}. noggin-web start"
     ((index++))
     echo "${index}. noggin-web stop"
-    ((index++))
-    echo "${index}. noggin-web restart"
     ((index++))
     echo "${index}. noggin-web status"
     ((index++))
@@ -330,24 +357,15 @@ show_menu() {
     ((index++))
     echo "${index}. reload (daemon)"
     ((index++))
-    
-    echo ""
-    echo "Tip: You can also run commands directly from the command line:"
-    echo "  ./manage_services.sh <service> <command>"
-    echo "  Example: ./manage_services.sh noggin-web restart"
-    echo ""
-    echo "Available commands: start, stop, restart, status, enable, disable,"
-    echo "  logs, follow, errors, errors-priority, logs-1d, logs-3d, logs-7d,"
-    echo "  dependencies, environment, health, dashboard, reload"
 }
 
 execute_menu_choice() {
     local choice=$1
     
     case $choice in
-        1) cmd_start "noggin-web" ;;
-        2) cmd_stop "noggin-web" ;;
-        3) cmd_restart "noggin-web" ;;
+        1) cmd_restart "noggin-web" ;;
+        2) cmd_start "noggin-web" ;;
+        3) cmd_stop "noggin-web" ;;
         4) cmd_status "noggin-web" ;;
         5) cmd_logs "noggin-web" ;;
         6) cmd_follow "noggin-web" ;;
@@ -402,9 +420,9 @@ main() {
     
     # Execute command
     case "$command" in
+        restart) cmd_restart "$service_name" ;;
         start) cmd_start "$service_name" ;;
         stop) cmd_stop "$service_name" ;;
-        restart) cmd_restart "$service_name" ;;
         status) cmd_status "$service_name" ;;
         enable) cmd_enable "$service_name" ;;
         disable) cmd_disable "$service_name" ;;
@@ -422,9 +440,7 @@ main() {
         dashboard) cmd_dashboard ;;
         *)
             echo -e "${RED}Error: Unknown command '${command}'${NC}"
-            echo "Available commands: start, stop, restart, status, enable, disable,"
-            echo "  logs, follow, errors, errors-priority, logs-1d, logs-3d, logs-7d,"
-            echo "  dependencies, environment, health, dashboard, reload"
+            echo "Available commands: start, stop, restart, status, enable, disable,logs, follow, errors, errors-priority, logs-1d, logs-3d, logs-7d,dependencies, environment, health, dashboard, reload"
             exit 1
             ;;
     esac

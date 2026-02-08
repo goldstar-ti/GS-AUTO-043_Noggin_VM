@@ -1,0 +1,14 @@
+api_error
+api_failed
+api_retrying
+api_success
+complete
+csv_imported
+downloading
+failed
+interrupted
+not_found
+partial
+pending
+permanently_failed
+retrying

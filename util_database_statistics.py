@@ -1,5 +1,5 @@
 """
-Service Dashboard
+Database Statistics and Processing Progress
 
 Displays comprehensive status including:
 - Service status
@@ -54,12 +54,21 @@ def get_database_statistics(db_manager: DatabaseConnectionManager) -> Dict[str, 
     results: List[Dict[str, Any]] = db_manager.execute_query_dict(query)
     
     stats: Dict[str, int] = {
+        'api_error': 0,
+        'api_failed': 0,
+        'api_retrying': 0,
+        'api_success': 0,
         'complete': 0,
-        'pending': 0,
+        'csv_imported': 0,
+        'downloading': 0,
         'failed': 0,
-        'partial': 0,
+        'ignore': 0,
         'interrupted': 0,
-        'api_failed': 0
+        'not_found': 0,
+        'partial': 0,
+        'pending': 0,
+        'permanently_failed': 0,
+        'retrying': 0
     }
     
     for row in results:
@@ -69,7 +78,7 @@ def get_database_statistics(db_manager: DatabaseConnectionManager) -> Dict[str, 
             stats[status] = count
         else:
             stats[status] = count
-    
+
     return stats
 
 
@@ -95,14 +104,14 @@ def get_object_type_statistics(db_manager: DatabaseConnectionManager) -> Dict[st
         count = row['count']
         
         if obj_type not in stats:
-            stats[obj_type] = {'total': 0, 'complete': 0, 'pending': 0, 'failed': 0}
+            # stats[obj_type] = {'total': 0, 'complete': 0, 'pending': 0, 'failed': 0}
+            stats[obj_type] = {'api_error': 0, 'api_failed': 0, 'api_retrying': 0, 'api_success': 0, 'complete': 0, 'csv_imported': 0, 'downloading': 0, 'failed': 0, 'ignore': 0, 'interrupted': 0, 'not_found': 0, 'partial': 0, 'pending': 0, 'permanently_failed': 0, 'retrying': 0}
         
         stats[obj_type]['total'] += count
         if status in stats[obj_type]:
             stats[obj_type][status] = count
     
     return stats
-
 
 def get_hash_statistics(db_manager: DatabaseConnectionManager) -> Dict[str, Dict[str, int]]:
     """Get hash lookup statistics"""
@@ -121,7 +130,8 @@ def get_hash_statistics(db_manager: DatabaseConnectionManager) -> Dict[str, Dict
             if lookup_type not in stats:
                 stats[lookup_type] = {'known': 0, 'unknown': 0}
             stats[lookup_type]['known'] = row['count']
-        
+
+        # TODO unknown_hashes table not being used at the moment. need to update code to use it and remove fallback to hash_lookup_unknown
         # Try unknown_hashes first, fall back to hash_lookup_unknown
         try:
             unknown_query = """
@@ -192,6 +202,8 @@ def main() -> None:
     
     try:
         print("\n" + "=" * 80)
+        print()
+        
         print("NOGGIN PROCESSOR SERVICE DASHBOARD")
         print("=" * 80)
         print(f"Timestamp: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")

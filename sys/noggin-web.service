@@ -1,5 +1,5 @@
 [Unit]
-Description=Noggin Web Dashboard
+Description=NOBBIE :: Noggin Object Binary Backup & Ingestion Engine :: gunicorn web application
 After=network.target postgresql.service
 Wants=postgresql.service
 

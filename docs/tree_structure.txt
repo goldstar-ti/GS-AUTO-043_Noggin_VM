@@ -1,14 +1,15 @@
-[Jan 30 08:50]  .
+[Feb  8 21:43]  .
 ├── [Jan 10 13:40]  archive_monthly_sftp.py
-├── [Jan 11 17:50]  common
+├── [Feb  8 20:07]  common
 │   ├── [Jan 29 17:31]  config.py
 │   ├── [Jan 18 17:02]  csv_importer.py
 │   ├── [Jan 11 16:51]  database.py
+│   ├── [Feb  8 20:07]  exit_codes.py
 │   ├── [Feb  4 18:25]  hash_manager.py
-│   ├── [Jan 14 09:39]  __init__.py
+│   ├── [Feb  8 14:24]  __init__.py
 │   ├── [Jan 12 16:43]  logger.py
 │   ├── [Jan 14 09:47]  object_types.py
-│   ├── [Feb  4 18:25]  __pycache__
+│   ├── [Feb  8 14:24]  __pycache__
 │   │   ├── [Jan 14 12:06]  config.cpython-312.pyc
 │   │   ├── [Jan 29 17:44]  config.cpython-314.pyc
 │   │   ├── [Jan 18 17:05]  csv_importer.cpython-312.pyc
@@ -18,7 +19,7 @@
 │   │   ├── [Jan 22 19:16]  hash_manager.cpython-312.pyc
 │   │   ├── [Feb  4 18:25]  hash_manager.cpython-314.pyc
 │   │   ├── [Jan 14 09:45]  __init__.cpython-312.pyc
-│   │   ├── [Jan 23 19:10]  __init__.cpython-314.pyc
+│   │   ├── [Feb  8 14:24]  __init__.cpython-314.pyc
 │   │   ├── [Jan 12 17:01]  logger.cpython-312.pyc
 │   │   ├── [Jan 23 19:10]  logger.cpython-314.pyc
 │   │   ├── [Jan 14 09:53]  object_types.cpython-312.pyc
@@ -26,33 +27,34 @@
 │   │   ├── [Jan 11 19:02]  rate_limiter.cpython-312.pyc
 │   │   └── [Jan 23 19:10]  rate_limiter.cpython-314.pyc
 │   └── [Jan 11 16:51]  rate_limiter.py
-├── [Jan 11 18:01]  config
-│   ├── [Feb  1 17:05]  base_config.ini
+├── [Feb  4 21:06]  config
+│   ├── [Feb  6 18:16]  base_config.ini
 │   ├── [Feb  4 14:12]  coupling_compliance_check_config.ini
 │   ├── [Feb  4 14:15]  forklift_prestart_inspection_config.ini
 │   ├── [Feb  4 14:13]  load_compliance_check_driver_loader_config.ini
 │   ├── [Feb  4 14:14]  load_compliance_check_supervisor_manager_config.ini
 │   ├── [Jan 12 15:24]  sftp_config.ini
 │   ├── [Feb  4 14:13]  site_observations_config.ini
-│   └── [Feb  4 14:15]  trailer_audits_config.ini
-├── [Feb  1 17:36]  docs
+│   ├── [Feb  4 14:15]  trailer_audits_config.ini
+│   └── [Feb  8 12:40]  web_config.ini
+├── [Feb  8 22:45]  docs
 │   ├── [Oct 22 19:01]  _create_service_todo.md
+│   ├── [Feb  4 20:49]  critical_issue_summary_20260204.md
 │   ├── [Jan 14 22:56]  noggin_db_bvackupu_columns_202601142256.json
 │   ├── [Jan 14 22:58]  noggin_db_bvackupu_columns_202601142258.md
 │   ├── [Jan 13 11:38]  noggin_sample_payloads_20260113_113816.json
 │   ├── [Jan 31 13:03]  noggin_schema.md
 │   ├── [Jan 31 12:58]  noggin_schema.sql
-│   ├── [Feb  4 13:05]  repomix-output.md
+│   ├── [Feb  8 22:45]  processed_status_enum.txt
+│   ├── [Jan 23 18:06]  requirements.txt
 │   ├── [Jan 31 13:07]  swagger.json
-│   ├── [Jan 10 13:07]  system_context.txt
-│   ├── [Jan 18 18:36]  TODO.md
-│   ├── [Feb  4 20:41]  tree_structure.txt
+│   ├── [Feb  4 20:48]  system_context.txt
+│   ├── [Feb  8 22:46]  tree_structure.txt
 │   └── [Jan 15 00:09]  web_interface_environment.txt
-├── [Feb  4 18:24]  hash_lookup_sync.py
-├── [Jan 18 17:01]  import_csv_tips.py
+├── [Feb  6 18:15]  hash_lookup_sync.py
 ├── [Oct 22 18:44]  manage_continuous_service.sh
 ├── [Jan 11 16:51]  manage_hashes.py
-├── [Jan 21 19:48]  manage_web_service.sh
+├── [Feb  8 20:22]  manage_web_service.sh
 ├── [Oct 23 11:04]  node_modules
 │   └── [Oct 23 11:04]  npx
 │       ├── [Oct 23 11:04]  CHANGELOG.md
@@ -62,7 +64,6 @@
 │       ├── [Oct 23 11:04]  npx.1
 │       ├── [Oct 23 11:04]  package.json
 │       └── [Oct 23 11:04]  README.md
-├── [Jan 11 16:51]  noggin_continuous_processor_modular.py
 ├── [Jan 12 14:45]  noggin_continuous_processor.py
 ├── [Jan 14 08:07]  noggin_processor_unified.py
 ├── [Oct 23 11:04]  package.json
@@ -88,23 +89,21 @@
 │   └── [Jan 14 12:04]  report_generator.py
 ├── [Jan 21 20:05]  __pycache__
 │   └── [Jan 21 20:05]  sftp_download_tips.cpython-312.pyc
-├── [Jan 23 18:06]  requirements.txt
-├── [Feb  4 13:59]  scratch
+├── [Feb  8 14:36]  scratch
 │   ├── [Jan 13 11:37]  fetch_noggin_samples.py
 │   ├── [Jan 22 12:09]  hash_resolution_implementation.md
 │   ├── [Jan 29 18:39]  lcd_null_column_backfill.py
+│   ├── [Jan 11 16:51]  noggin_continuous_processor_modular.py
 │   ├── [Jan 29 18:31]  noggin_db_bvackupu_hash_lookup_202601291831.csv
 │   ├── [Feb  3 20:59]  noggin_sample_payloads_20260203_205938.json
 │   └── [Feb  4 14:00]  update_unknown_team
 │       ├── [Feb  3 21:43]  exported-file-bc1eb447-489c-434a-a0c7-412e177f72b6 (2).csv
 │       ├── [Feb  4 14:02]  update_unknown_team.py
-│       └── [Feb  4 14:02]  upsert_teams.sql
-├── [Jan 11 19:10]  service_dashboard.py
-├── [Jan 14 09:39]  sftp_download_tips.py
-├── [Jan 21 19:47]  sys
+│       └── [Feb  8 00:54]  upsert_teams.sql
+├── [Feb  8 14:36]  sys
 │   ├── [Oct 23 09:30]  get_server_config.sh
 │   ├── [Jan 11 15:56]  log_maintenance.py
-│   ├── [Jan 21 19:30]  noggin-web.service
+│   ├── [Feb  8 14:15]  noggin-web.service
 │   └── [Jan 10 13:07]  system_audit.sh
 ├── [Feb  1 12:52]  test
 │   ├── [Jan 11 16:52]  test_circuit_breaker.py
@@ -116,14 +115,18 @@
 │   ├── [Oct 22 19:00]  test_systemd_service.sh
 │   ├── [Feb  1 12:40]  validate_noggin_data_LCD.py
 │   └── [Feb  1 12:52]  validate_noggin_data.py
-└── [Feb  1 17:04]  web
-    ├── [Feb  1 17:03]  app.py
+├── [Feb  6 20:28]  util_concat.py
+├── [Feb  8 22:05]  util_database_statistics.py
+├── [Jan 18 17:01]  util_import_tips_csv.py
+├── [Jan 14 09:39]  util_import_tips_sftp.py
+└── [Feb  4 21:12]  web
+    ├── [Feb  8 12:48]  app.py
     ├── [Feb  1 17:17]  display_config_manager.py
     ├── [Jan 18 19:10]  email_manager.py
     ├── [Feb  1 17:04]  print_manager.py
-    ├── [Feb  1 17:23]  __pycache__
+    ├── [Feb  8 12:48]  __pycache__
     │   ├── [Jan 21 21:18]  app.cpython-312.pyc
-    │   ├── [Feb  1 17:06]  app.cpython-314.pyc
+    │   ├── [Feb  8 12:48]  app.cpython-314.pyc
     │   ├── [Jan 18 19:17]  config_manager.cpython-312.pyc
     │   ├── [Feb  1 17:23]  display_config_manager.cpython-314.pyc
     │   ├── [Jan 18 19:17]  email_manager.cpython-312.pyc
@@ -131,12 +134,16 @@
     ├── [Feb  1 18:01]  static
     │   ├── [Jan 30 08:51]  css
     │   └── [Feb  1 18:09]  img
-    └── [Jan 30 08:51]  templates
-        ├── [Feb  1 18:22]  base.html
+    └── [Feb  6 22:53]  templates
+        ├── [Feb  4 21:07]  base.html
         ├── [Jan 30 00:42]  dashboard.html
+        ├── [Feb  4 22:54]  error.html
         ├── [Jan 30 00:42]  hashes.html
-        ├── [Feb  1 17:02]  inspection_detail.html
-        ├── [Jan 30 00:42]  inspections.html
-        └── [Jan 30 00:42]  service_status.html
+        ├── [Feb  4 21:08]  record_detail.html
+        ├── [Feb  4 21:07]  records.html
+        ├── [Feb  6 23:03]  reports
+        ├── [Feb  4 22:06]  reports.html
+        ├── [Jan 30 00:42]  service_status.html
+        └── [Feb  4 21:08]  utility.html
 
-21 directories, 119 files
+22 directories, 125 files
