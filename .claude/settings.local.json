@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(wc -l /c/GS/GS-AUTO-043_Noggin_VM/noggin_processor_unified.py /c/GS/GS-AUTO-043_Noggin_VM/processors/*.py /c/GS/GS-AUTO-043_Noggin_VM/common/*.py)",
+      "Bash(python:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(git push:*)"
+    ]
+  }
+}
