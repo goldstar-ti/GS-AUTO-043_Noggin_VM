@@ -141,7 +141,7 @@ def get_hash_statistics(db_manager: DatabaseConnectionManager) -> Dict[str, Dict
                 GROUP BY lookup_type
             """
             unknown_results = db_manager.execute_query_dict(unknown_query)
-        except:
+        except Exception:
             unknown_query = """
                 SELECT lookup_type, COUNT(*) as count 
                 FROM hash_lookup_unknown 

@@ -200,7 +200,7 @@ class APIClient:
             try:
                 logger.debug(f"API request attempt {attempt + 1}/{self.max_retries} for TIP {tip_value}")
                 response: requests.Response = requests.get(url, headers=self.headers, timeout=self.timeout)
-                response._retry_count = attempt
+                object.__setattr__(response, '_retry_count', attempt)
                 logger.debug(f"Request attempt {attempt + 1} succeeded for TIP {tip_value}")
                 return response
 
@@ -209,7 +209,7 @@ class APIClient:
                 if attempt == self.max_retries - 1:
                     logger.error(f"All {self.max_retries} connection attempts failed for TIP {tip_value}")
                     raise
-                wait_time: float = min((self.backoff_factor ** attempt) * self.backoff_factor, self.max_backoff)
+                wait_time: float = min(self.backoff_factor ** attempt, self.max_backoff)
                 logger.warning(f"Connection failed for TIP {tip_value}, retrying in {wait_time}s (attempt {attempt + 1}/{self.max_retries})")
                 time.sleep(wait_time)
 
@@ -218,7 +218,7 @@ class APIClient:
                 if attempt == self.max_retries - 1:
                     logger.error(f"All {self.max_retries} timeout attempts failed for TIP {tip_value}")
                     raise
-                wait_time = min((self.backoff_factor ** attempt) * self.backoff_factor, self.max_backoff)
+                wait_time = min(self.backoff_factor ** attempt, self.max_backoff)
                 logger.warning(f"Request timeout for TIP {tip_value}, retrying in {wait_time}s (attempt {attempt + 1}/{self.max_retries})")
                 time.sleep(wait_time)
 
@@ -227,7 +227,7 @@ class APIClient:
                 if attempt == self.max_retries - 1:
                     logger.error(f"Request failed permanently for TIP {tip_value}: {e}")
                     raise
-                wait_time = self.backoff_factor
+                wait_time = min(self.backoff_factor ** attempt, self.max_backoff)
                 logger.warning(f"Request error for TIP {tip_value}, retrying in {wait_time}s (attempt {attempt + 1}/{self.max_retries})")
                 time.sleep(wait_time)
 

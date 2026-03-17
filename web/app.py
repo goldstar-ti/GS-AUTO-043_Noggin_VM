@@ -70,13 +70,14 @@ DATE_FORMAT = config.get('web_display', 'date_format', fallback='%d %b %Y')
 DATETIME_FORMAT = config.get('web_display', 'datetime_format', fallback='%d %b %Y %H:%M')
 
 app = Flask(__name__)
-app.secret_key = 'a1b5a507e8d554cd54f506f3b1056a71f237309a9f4565b6cc9632d4d3352faa'
+app.secret_key = web_config.get('security', 'secret_key',
+                                fallback=os.environ.get('FLASK_SECRET_KEY', ''))
 auth = HTTPBasicAuth()
 
-users = {
-    "tifunction": generate_password_hash("BankFreePlay13"),
-    "hseq": generate_password_hash("hseq")
-}
+users = {}
+if web_config.has_section('users'):
+    for _username in web_config.options('users'):
+        users[_username] = generate_password_hash(web_config.get('users', _username))
 
 
 def get_object_type_display(object_type: str) -> Tuple[str, str]:
@@ -446,9 +447,12 @@ def record_detail(tip: str):
         # show full object type name under the noggin_reference on record_detail.html
         try:
             obj_config = display_config_mgr.get_config(object_type)
-            abbreviation = obj_config.get('object_type', 'abbreviation', fallback='')
-            full_type_name = obj_config.get('object_type', 'full_name', fallback=object_type)
-        except:
+            if obj_config:
+                abbreviation = obj_config.abbreviation
+                full_type_name = obj_config.full_name
+            else:
+                abbreviation, full_type_name = get_object_type_display(object_type)
+        except Exception:
             abbreviation, full_type_name = get_object_type_display(object_type)
         
         # Check if department should be hidden (same as team)

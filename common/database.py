@@ -93,6 +93,7 @@ class DatabaseConnectionManager:
                 conn = self.pool.getconn()
                 
                 if not self._health_check(conn):
+                    self.pool.putconn(conn, close=True)
                     raise DatabaseConnectionError("Unable to obtain healthy connection")
             
             return conn

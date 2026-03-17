@@ -487,7 +487,8 @@ def download_from_sftp(config: 'ConfigLoader', paths: dict[str, Path]) -> tuple[
         return None, None
     
     finally:
-        transport.close()
+        if 'transport' in locals() and transport is not None:
+            transport.close()
 
 
 def archive_file(file_path: Path, archive_folder: Path) -> Path:

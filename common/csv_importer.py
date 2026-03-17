@@ -154,7 +154,7 @@ class HashResolver:
                 return None
 
         except Exception as e:
-            logger.warning(f"Hash lookup failed for {hash_value[:16]}...: {e}")
+            logger.error(f"Hash lookup DB error for {hash_value[:16]}...: {e}")
             return None
 
     def resolve_or_passthrough(self, value: str) -> Tuple[Optional[str], Optional[str]]:

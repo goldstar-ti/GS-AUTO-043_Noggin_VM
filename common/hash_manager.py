@@ -15,6 +15,7 @@ import configparser
 import logging
 import csv
 import re
+import threading
 from pathlib import Path
 from typing import Optional, List, Dict, Any, Tuple, Set
 from datetime import datetime
@@ -29,15 +30,18 @@ class HashLookupError(Exception):
 
 class HashTypeDetector:
     """Loads and applies hash type detection rules from config"""
-    
+
     _instance: Optional['HashTypeDetector'] = None
+    _lock: threading.Lock = threading.Lock()
     _patterns: Dict[str, Dict[str, Any]] = {}
     _settings: Dict[str, int] = {}
     _loaded: bool = False
-    
+
     def __new__(cls):
         if cls._instance is None:
-            cls._instance = super().__new__(cls)
+            with cls._lock:
+                if cls._instance is None:
+                    cls._instance = super().__new__(cls)
         return cls._instance
     
     def load(self, config_path: Optional[str] = None) -> None:

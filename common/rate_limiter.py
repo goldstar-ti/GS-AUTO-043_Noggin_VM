@@ -1,7 +1,7 @@
 from __future__ import annotations
 import logging
 import time
-from typing import Optional, List
+from typing import Any, Optional, List
 from datetime import datetime, timedelta
 from enum import Enum
 
@@ -137,7 +137,7 @@ class CircuitBreaker:
         """Get current circuit state"""
         return self.state
     
-    def get_statistics(self) -> dict[str, any]:
+    def get_statistics(self) -> dict[str, Any]:
         """Get circuit breaker statistics"""
         failure_rate: float = self._calculate_failure_rate()
         

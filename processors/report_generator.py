@@ -155,7 +155,7 @@ class ReportGenerator:
             clean_date = date_value.replace('Z', '+00:00')
             
             # Try parsing with timezone
-            if '+' in clean_date or '-' in clean_date[10:]:
+            if '+' in clean_date or (len(clean_date) > 10 and '-' in clean_date[10:]):
                 # Has timezone info
                 parsed = datetime.fromisoformat(clean_date)
             else:

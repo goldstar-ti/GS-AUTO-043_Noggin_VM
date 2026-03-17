@@ -19,8 +19,8 @@ from typing import Dict, Any
 from common import ConfigLoader, LoggerManager, DatabaseConnectionManager, CSVImporter, HashManager
 from sys.util_import_tips_sftp import run_sftp_download
 
-# Logger will be initialized after LoggerManager.configure_application_logger() is called in main()
-logger: logging.Logger = None
+# Logger stub: safe to use before main() configures the full application logger
+logger: logging.Logger = logging.getLogger(__name__)
 shutdown_requested: bool = False
 
 
@@ -50,7 +50,7 @@ def run_single_processing_cycle(config: ConfigLoader, db_manager: DatabaseConnec
     
     try:
         script_dir = Path(__file__).parent
-        processor_script = script_dir / 'noggin_processor.py'
+        processor_script = script_dir / 'noggin_processor_unified.py'
         
         if not processor_script.exists():
             logger.error(f"Processor script not found: {processor_script}")
@@ -303,11 +303,6 @@ def main() -> int:
         logger.info(f"Total records processed: {total_processed}")
         logger.info("="*80)
 
-        # Sleep before next cycle
-        if not shutdown_requested:
-            logger.info(f"Sleeping {cycle_sleep}s before next cycle...")
-            time.sleep(cycle_sleep)        
-            
         return 0
         
     except KeyboardInterrupt:

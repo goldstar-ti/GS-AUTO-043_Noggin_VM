@@ -193,7 +193,7 @@ class FieldProcessor:
                 result[resolved_column] = resolved_value
                 
                 # Check if unresolved
-                if resolved_value and resolved_value.startswith('Unknown'):
+                if resolved_value and isinstance(resolved_value, str) and resolved_value.startswith('Unknown'):
                     unknown_hashes.append(api_field)
             else:
                 result[db_column] = processed_value

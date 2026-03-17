@@ -131,12 +131,9 @@ def get_object_type_by_full_name(full_name: str) -> Optional[ObjectTypeConfig]:
 
 def get_all_object_types() -> List[ObjectTypeConfig]:
     """Get list of all supported object types (excluding aliases)"""
-    # Filter out the LCC alias to avoid duplicates
     seen_abbrevs = set()
     result = []
     for abbrev, config in OBJECT_TYPES.items():
-        if abbrev == 'LCC':
-            continue
         if config.abbreviation not in seen_abbrevs:
             seen_abbrevs.add(config.abbreviation)
             result.append(config)

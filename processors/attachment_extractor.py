@@ -11,6 +11,7 @@ Supports config-driven stub overrides with auto-generation fallback.
 """
 
 from __future__ import annotations
+import hashlib
 import re
 import logging
 from dataclasses import dataclass
@@ -135,7 +136,7 @@ class AttachmentExtractor:
         """Extract the TIP hash from a media URL"""
         if 'tip=' in url:
             return url.split('tip=')[-1]
-        return f'unknown_{hash(url) % 10000}'
+        return f'unknown_{hashlib.md5(url.encode()).hexdigest()[:8]}'
     
     def _get_stub_for_field(self, field_name: str) -> str:
         """
