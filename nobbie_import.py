@@ -1,5 +1,5 @@
 """
-SCRIPT: util_import.py
+SCRIPT: nobbie_import.py
 DATE:   2026-02-08
 
 DESCRIPTION:
@@ -21,16 +21,16 @@ DESCRIPTION:
 
 USAGE:
     1. Interactive Menu (Default):
-       $ python util_import.py
+       $ python nobbie_import.py
 
     2. CLI - Local Directory Mode:
-       $ python util_import.py --from-dir
+       $ python nobbie_import.py --from-dir
 
     3. CLI - Local Directory Update Mode (Fill missing fields only):
-       $ python util_import.py --from-dir --update
+       $ python nobbie_import.py --from-dir --update
 
     4. CLI - SFTP Mode:
-       $ python util_import.py --from-sftp
+       $ python nobbie_import.py --from-sftp
 
 DEPENDENCIES:
     - paramiko (for SFTP connections)
@@ -66,7 +66,7 @@ try:
 except ImportError:
     USE_SHARED_OBJECT_TYPES = False
 
-config: ConfigLoader = ConfigLoader('config/base_config.ini')
+config: ConfigLoader = ConfigLoader('config/base.ini')
 
 logger_manager: LoggerManager = LoggerManager(config, script_name='import_tips_combined')
 logger_manager.configure_application_logger()
@@ -207,7 +207,7 @@ def preview_csv_files(csv_importer: CSVImporter) -> None:
         logger.info(f"No CSV files found in: {csv_importer.input_folder}")
     print("\n")
 
-def load_sftp_config(config_path: str = 'config/sftp_config.ini') -> ConfigParser:
+def load_sftp_config(config_path: str = 'config/sftp.ini') -> ConfigParser:
     config = ConfigParser()
     config_file = Path(config_path)
     if not config_file.exists():
@@ -369,7 +369,7 @@ def run_sftp_process(db_manager: DatabaseConnectionManager) -> None:
     logger.info("Starting SFTP Download & Import Mode...")
 
     try:
-        sftp_config = load_sftp_config('config/sftp_config.ini')
+        sftp_config = load_sftp_config('config/sftp.ini')
 
         sftp_logger = SFTPLoggerManager(sftp_config, Path(config.get('paths', 'base_log_path')))
         sftp_logger.configure_sftp_loggers()

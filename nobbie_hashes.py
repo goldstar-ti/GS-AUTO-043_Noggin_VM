@@ -2,7 +2,7 @@
 Hash Management CLI Tool
 
 Simple command-line interface for hash lookup operations.
-For bulk imports, use hash_lookup_sync.py instead.
+For bulk imports, use nobbie_sync.py instead.
 
 Commands:
     stats   - Display hash statistics
@@ -212,7 +212,7 @@ Examples:
     # List all trailers (first 100)
     python manage_hashes.py list trailer --limit 100
 
-Note: For importing/syncing hash data, use hash_lookup_sync.py instead.
+Note: For importing/syncing hash data, use nobbie_sync.py instead.
         """
     )
     
@@ -249,8 +249,8 @@ Note: For importing/syncing hash data, use hash_lookup_sync.py instead.
     
     # Initialise components
     config = ConfigLoader(
-        'config/base_config.ini',
-        'config/load_compliance_check_driver_loader_config.ini'
+        'config/base.ini',
+        'config/LCD.ini'
     )
     
     logger_manager = LoggerManager(config, script_name='manage_hashes')

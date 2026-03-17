@@ -4,7 +4,7 @@ SFTP TIP Downloader for Noggin Data Extraction System
 Downloads CSV files from SFTP server, identifies object types,
 extracts TIPs, and inserts them into the database for processing.
 
-Can be run standalone or called from noggin_continuous_processor.py
+Can be run standalone or called from nobbie_daemon.py
 """
 
 from __future__ import annotations
@@ -150,7 +150,7 @@ class SFTPLoggerManager:
         return self._warning_logger
 
 
-def load_sftp_config(config_path: str = 'config/sftp_config.ini') -> ConfigParser:
+def load_sftp_config(config_path: str = 'config/sftp.ini') -> ConfigParser:
     """Load SFTP configuration from INI file"""
     config = ConfigParser()
     config_file = Path(config_path)
@@ -702,7 +702,7 @@ def process_single_file(
 
 
 def run_sftp_download(
-    sftp_config_path: str = 'config/sftp_config.ini',
+    sftp_config_path: str = 'config/sftp.ini',
     base_config: Optional[ConfigLoader] = None,
     db_manager: Optional[DatabaseConnectionManager] = None
 ) -> Dict[str, Any]:
@@ -750,8 +750,8 @@ def run_sftp_download(
         if db_manager is None:
             if base_config is None:
                 base_config = ConfigLoader(
-                    'config/base_config.ini',
-                    'config/load_compliance_check_driver_loader_config.ini'
+                    'config/base.ini',
+                    'config/LCD.ini'
                 )
             db_manager = DatabaseConnectionManager(base_config)
             own_db_manager = True
@@ -832,8 +832,8 @@ def main() -> int:
     """Standalone entry point"""
     try:
         base_config = ConfigLoader(
-            'config/base_config.ini',
-            'config/load_compliance_check_driver_loader_config.ini'
+            'config/base.ini',
+            'config/LCD.ini'
         )
         
         logger_manager = LoggerManager(base_config, script_name='sftp_download_tips')

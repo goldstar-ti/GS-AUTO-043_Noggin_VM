@@ -11,33 +11,33 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ### Running the Processor
 ```bash
 # Process by object type (reads from pending input folder by default)
-python noggin_processor_unified.py LCD
-python noggin_processor_unified.py CCC --csv tips.csv    # specific CSV
-python noggin_processor_unified.py FPI --database        # from DB queue
-python noggin_processor_unified.py TA --tip <TIP_ID>     # single record
+python nobbie_process.py LCD
+python nobbie_process.py CCC --csv tips.csv    # specific CSV
+python nobbie_process.py FPI --database        # from DB queue
+python nobbie_process.py TA --tip <TIP_ID>     # single record
 
 # Continuous daemon
-./manage_continuous_service.sh start|stop|status|logs
+./nobbie-daemon.sh start|stop|status|logs
 ```
 
 ### Data Import
 ```bash
-python util_import.py                    # interactive menu
-python util_import.py --from-dir         # local CSV files
-python util_import.py --from-sftp        # download + import via SFTP
+python nobbie_import.py                    # interactive menu
+python nobbie_import.py --from-dir         # local CSV files
+python nobbie_import.py --from-sftp        # download + import via SFTP
 ```
 
 ### Web Interface
 ```bash
-./manage_web_service.sh start|stop|status|logs
+./nobbie-web.sh start|stop|status|logs
 # Access: http://localhost:5000  (auth: tifunction / hseq)
 ```
 
 ### Utilities
 ```bash
-python hash_manager.py import vehicle vehicles.csv
-python hash_manager.py export-unknown vehicle unknown.csv
-python util_database_statistics.py
+python nobbie_hashes.py import vehicle vehicles.csv
+python nobbie_hashes.py export-unknown vehicle unknown.csv
+python nobbie_stats.py
 ```
 
 ### Tests
@@ -45,7 +45,7 @@ python util_database_statistics.py
 python test/test_circuit_breaker.py
 python test/test_database.py
 python test/test_hash_manager.py
-python test/validate_noggin_data.py
+python test/validate_nobbie_data.py
 ```
 
 ### Install Dependencies
@@ -58,14 +58,14 @@ pip install -r docs/requirements.txt
 ### Entry Points
 | Script | Purpose |
 |---|---|
-| `noggin_processor_unified.py` | Main CLI — orchestrates processing for any object type |
-| `noggin_continuous_processor.py` | Daemon — runs processing + import cycles in a loop |
-| `util_import.py` | Import TIP records from local CSV or remote SFTP |
+| `nobbie_process.py` | Main CLI — orchestrates processing for any object type |
+| `nobbie_daemon.py` | Daemon — runs processing + import cycles in a loop |
+| `nobbie_import.py` | Import TIP records from local CSV or remote SFTP |
 | `web/app.py` | Flask dashboard (records, attachments, hash management) |
-| `hash_manager.py` | CLI for managing entity hash lookups |
+| `nobbie_hashes.py` | CLI for managing entity hash lookups |
 
 ### Processing Pipeline
-`noggin_processor_unified.py` → `processors/object_processor.py` (orchestrator) which coordinates:
+`nobbie_process.py` → `processors/object_processor.py` (orchestrator) which coordinates:
 - **`processors/base_processor.py`** — `APIClient` (HTTP + retry/backoff), `AttachmentDownloader` (download + MD5 validate), `FolderManager`, `GracefulShutdownHandler`
 - **`processors/field_processor.py`** — config-driven field extraction + type conversion + hash resolution
 - **`processors/report_generator.py`** — Jinja2-style template rendering from config
@@ -73,8 +73,8 @@ pip install -r docs/requirements.txt
 
 ### Configuration System
 All behaviour is config-driven via INI files in `config/`:
-- `base_config.ini` — database, API credentials, paths, circuit breaker, retry, SFTP, continuous cycle settings
-- One config per object type (e.g. `coupling_compliance_check_config.ini`) — defines API endpoint, field mappings (API → DB column), folder/file naming patterns, report templates, attachment extraction patterns
+- `base.ini` — database, API credentials, paths, circuit breaker, retry, SFTP, continuous cycle settings
+- One config per object type (e.g. `CCC.ini`) — defines API endpoint, field mappings (API → DB column), folder/file naming patterns, report templates, attachment extraction patterns
 
 `common/config.py` (`ConfigLoader`) merges base + object-type config. **Case-sensitivity is preserved** — critical because API field names are camelCase.
 
@@ -92,18 +92,18 @@ Key tables:
 - **`processing_errors`** — error audit log
 
 ### API Resilience (`common/rate_limiter.py`)
-`CircuitBreaker` with CLOSED/OPEN/HALF_OPEN states. Configured via `[circuit_breaker]` in `base_config.ini`. Wraps all outbound API calls.
+`CircuitBreaker` with CLOSED/OPEN/HALF_OPEN states. Configured via `[circuit_breaker]` in `base.ini`. Wraps all outbound API calls.
 
 ### Hash Resolution (`common/hash_manager.py`)
 In-memory cached lookups backed by the `entity_hashes` table. Unresolved hashes are recorded in `unknown_hashes` as `"UNKNOWN"` placeholders until imported.
 
-### Import Pipeline (`util_import.py` + `common/csv_importer.py`)
+### Import Pipeline (`nobbie_import.py` + `common/csv_importer.py`)
 CSV files land in `input_folder_path` → validated → upserted into `noggin_data` → moved to `processed/` or `error/`. Object type is auto-detected from CSV headers.
 
-### Continuous Processor Cycle (`noggin_continuous_processor.py`)
-Runs a configurable loop: every N cycles it triggers CSV import, hash resolution, and SFTP download, interspersed with API processing cycles. Cycle timing controlled by `[continuous]` in `base_config.ini`.
+### Continuous Processor Cycle (`nobbie_daemon.py`)
+Runs a configurable loop: every N cycles it triggers CSV import, hash resolution, and SFTP download, interspersed with API processing cycles. Cycle timing controlled by `[continuous]` in `base.ini`.
 
-## Key Paths (from `base_config.ini`)
+## Key Paths (from `base.ini`)
 ```
 Logs:      /mnt/data/noggin/log
 Output:    /mnt/data/noggin/out

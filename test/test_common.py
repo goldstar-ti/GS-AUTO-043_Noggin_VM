@@ -3,8 +3,8 @@ from common import UNKNOWN_TEXT
 
 try:
     config = ConfigLoader(
-        'config/base_config.ini',
-        'config/load_compliance_check_driver_loader_config.ini'
+        'config/base.ini',
+        'config/LCD.ini'
     )
     print(f"ConfigLoader imported successfully.\nPostgreSQL config:{config.get_postgresql_config()}")
 except ConfigurationError as e:

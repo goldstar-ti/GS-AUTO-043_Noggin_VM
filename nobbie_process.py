@@ -5,10 +5,10 @@ Processes any object type based on command line
 Recommended script for continuous processor and manual invocation
 
 Usage:
-    python noggin_processor_unified.py LCD                    # Process LCD from default CSV
-    python noggin_processor_unified.py CCC --csv tips.csv     # Process CCC from specific CSV
-    python noggin_processor_unified.py FPI --database         # Process FPI from database queue
-    python noggin_processor_unified.py TA --tip ABC123...     # Process single TA TIP
+    python nobbie_process.py LCD                    # Process LCD from default CSV
+    python nobbie_process.py CCC --csv tips.csv     # Process CCC from specific CSV
+    python nobbie_process.py FPI --database         # Process FPI from database queue
+    python nobbie_process.py TA --tip ABC123...     # Process single TA TIP
 
 Supported object types:
     LCD - Load Compliance Check (Driver/Loader)
@@ -92,8 +92,8 @@ Examples:
     )
     parser.add_argument(
         '--base-config',
-        default='config/base_config.ini',
-        help='Path to base config file (default: config/base_config.ini)'
+        default='config/base.ini',
+        help='Path to base config file (default: config/base.ini)'
     )
 
     args = parser.parse_args()
@@ -161,7 +161,7 @@ def process_object_type(object_type: str, csv_path: str = None,
         raise ValueError(f"Unknown object type: {object_type}. Valid: {list(CONFIG_FILES.keys())}")
 
     processor = ObjectProcessor(
-        base_config_path='config/base_config.ini',
+        base_config_path='config/base.ini',
         specific_config_path=CONFIG_FILES[object_type]
     )
 

@@ -41,8 +41,8 @@ from display_config_manager import DisplayConfigManager, format_value
 
 RESULTS_PER_PAGE = 100
 _APP_DIR = Path(__file__).parent
-CONFIG_PATH = str(_APP_DIR / '../config/base_config.ini')
-WEB_CONFIG_PATH = '../config/web_config.ini'  # load_web_config() already anchors to __file__
+CONFIG_PATH = str(_APP_DIR / '../config/base.ini')
+WEB_CONFIG_PATH = '../config/web.ini'  # load_web_config() already anchors to __file__
 _CONFIG_DIR = str(_APP_DIR / '../config')
 
 _startup_error: Optional[str] = None
@@ -102,7 +102,7 @@ def _check_startup():
 
 def get_object_type_display(object_type: str) -> Tuple[str, str]:
     """
-    Get abbreviation and full name for an object type from web_config.ini
+    Get abbreviation and full name for an object type from web.ini
     Returns (abbreviation, full_name) tuple
     """
     if web_config.has_option('object_types', object_type):

@@ -152,12 +152,12 @@ class DisplayConfigManager:
     def _load_configs(self):
         """Load all object type config files"""
         config_files = [
-            'load_compliance_check_driver_loader_config.ini',
-            'load_compliance_check_supervisor_manager_config.ini',
-            'coupling_compliance_check_config.ini',
-            'trailer_audits_config.ini',
-            'site_observations_config.ini',
-            'forklift_prestart_inspection_config.ini',
+            'LCD.ini',
+            'LCS.ini',
+            'CCC.ini',
+            'TA.ini',
+            'SO.ini',
+            'FPI.ini',
         ]
         
         for filename in config_files:

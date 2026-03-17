@@ -2,7 +2,7 @@
 Hash Manager - Runtime hash lookup operations
 
 Provides in-memory cached lookups for resolving Noggin hashes to human-readable values.
-The hash_lookup table is populated by hash_lookup_sync.py from weekly Noggin exports.
+The hash_lookup table is populated by nobbie_sync.py from weekly Noggin exports.
 
 This module is used by processors during data extraction to resolve vehicle, trailer,
 team, and department hashes to their display names.

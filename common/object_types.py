@@ -4,7 +4,7 @@ Object Type Detection Module
 Centralised object type detection logic used by:
 - csv_importer.py
 - sftp_download_tips.py
-- noggin_processor_unified.py
+- nobbie_process.py
 - Any future importers
 
 This ensures consistent detection across all entry points.
@@ -39,42 +39,42 @@ OBJECT_TYPES: Dict[str, ObjectTypeConfig] = {
         full_name='Coupling Compliance Check',
         id_column='couplingId',
         id_prefix='C - ',
-        config_file='coupling_compliance_check_config.ini'
+        config_file='CCC.ini'
     ),
     'FPI': ObjectTypeConfig(
         abbreviation='FPI',
         full_name='Forklift Prestart Inspection',
         id_column='forkliftPrestartInspectionId',
         id_prefix='FL - Inspection - ',
-        config_file='forklift_prestart_inspection_config.ini'
+        config_file='FPI.ini'
     ),
     'LCS': ObjectTypeConfig(
         abbreviation='LCS',
         full_name='Load Compliance Check Supervisor/Manager',
         id_column='lcsInspectionId',
         id_prefix='LCS - ',
-        config_file='load_compliance_check_supervisor_manager_config.ini'
+        config_file='LCS.ini'
     ),
     'LCD': ObjectTypeConfig(
         abbreviation='LCD',
         full_name='Load Compliance Check Driver/Loader',
         id_column='lcdInspectionId',
         id_prefix='LCD - ',
-        config_file='load_compliance_check_driver_loader_config.ini'
+        config_file='LCD.ini'
     ),
     'SO': ObjectTypeConfig(
         abbreviation='SO',
         full_name='Site Observations',
         id_column='siteObservationId',
         id_prefix='SO - ',
-        config_file='site_observations_config.ini'
+        config_file='SO.ini'
     ),
     'TA': ObjectTypeConfig(
         abbreviation='TA',
         full_name='Trailer Audits',
         id_column='trailerAuditId',
         id_prefix='TA - ',
-        config_file='trailer_audits_config.ini'
+        config_file='TA.ini'
     )
 }
 

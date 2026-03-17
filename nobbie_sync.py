@@ -8,11 +8,11 @@ Additionally provides functionality to resolve unknown hash values in the databa
 by looking them up in the updated hash_lookup table and regenerating text files.
 
 Usage:
-    python hash_lookup_sync.py --process-pending
-    python hash_lookup_sync.py --asset-file /path/to/asset.csv --site-file /path/to/site.csv
-    python hash_lookup_sync.py --sftp
-    python hash_lookup_sync.py --stats
-    python hash_lookup_sync.py --process-pending --resolve-unknown-hashes
+    python nobbie_sync.py --process-pending
+    python nobbie_sync.py --asset-file /path/to/asset.csv --site-file /path/to/site.csv
+    python nobbie_sync.py --sftp
+    python nobbie_sync.py --stats
+    python nobbie_sync.py --process-pending --resolve-unknown-hashes
 """
 
 from __future__ import annotations
@@ -623,7 +623,7 @@ def resolve_unknown_hashes(db_manager: 'DatabaseConnectionManager',
     
     logger.info("Starting unknown hash resolution")
 
-    CONFIG_PATH = '../config/base_config.ini'
+    CONFIG_PATH = '../config/base.ini'
     config = ConfigLoader(CONFIG_PATH)    
 
     LOG_DIR = Path(config.get('paths', 'base_log_path', fallback='/mnt/data/noggin/log'))
@@ -816,12 +816,12 @@ def regenerate_text_file(record: Dict[str, Any],
     inspection_date = record['inspection_date']
     
     object_configs = {
-        'LCD': 'load_compliance_check_driver_loader_config.ini',
-        'LCS': 'load_compliance_check_supervisor_manager_config.ini',
-        'CC': 'coupling_compliance_check_config.ini',
-        'TA': 'trailer_audits_config.ini',
-        'SO': 'site_observations_config.ini',
-        'FPI': 'forklift_prestart_inspection_config.ini'
+        'LCD': 'LCD.ini',
+        'LCS': 'LCS.ini',
+        'CC': 'CCC.ini',
+        'TA': 'TA.ini',
+        'SO': 'SO.ini',
+        'FPI': 'FPI.ini'
     }
     
     config_filename = object_configs.get(object_type)
@@ -865,22 +865,22 @@ def main() -> int:
         epilog="""
 Examples:
     # Process files from pending folder (auto-detects asset vs site)
-    python hash_lookup_sync.py --process-pending
+    python nobbie_sync.py --process-pending
     
     # Sync from specific files
-    python hash_lookup_sync.py --asset-file assets.csv --site-file sites.csv
+    python nobbie_sync.py --asset-file assets.csv --site-file sites.csv
     
     # Download and sync from SFTP
-    python hash_lookup_sync.py --sftp
+    python nobbie_sync.py --sftp
     
     # Sync and then resolve unknown hashes in database
-    python hash_lookup_sync.py --process-pending --resolve-unknown-hashes
+    python nobbie_sync.py --process-pending --resolve-unknown-hashes
     
     # Show current statistics only
-    python hash_lookup_sync.py --stats
+    python nobbie_sync.py --stats
     
     # Dry run (no database changes)
-    python hash_lookup_sync.py --process-pending --dry-run
+    python nobbie_sync.py --process-pending --dry-run
         """
     )
     
@@ -894,7 +894,7 @@ Examples:
     parser.add_argument('--no-archive', action='store_true', help='Do not archive processed files')
     parser.add_argument('--resolve-unknown-hashes', action='store_true',
                        help='After sync, attempt to resolve unknown hashes in database and regenerate reports')
-    parser.add_argument('--config', type=Path, default=Path('config/base_config.ini'),
+    parser.add_argument('--config', type=Path, default=Path('config/base.ini'),
                        help='Path to base config file')
     
     args = parser.parse_args()
@@ -906,7 +906,7 @@ Examples:
     
     config = ConfigLoader(str(args.config))
     
-    logger_manager = LoggerManager(config, script_name='hash_lookup_sync')
+    logger_manager = LoggerManager(config, script_name='nobbie_sync')
     logger_manager.configure_application_logger()
     
     db_manager = DatabaseConnectionManager(config)

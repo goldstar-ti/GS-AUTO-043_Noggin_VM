@@ -6,7 +6,7 @@ from typing import Dict, Any
 
 from common import ConfigLoader, LoggerManager, DatabaseConnectionManager, CSVImporter
 
-config: ConfigLoader = ConfigLoader('config/base_config.ini')
+config: ConfigLoader = ConfigLoader('config/base.ini')
 
 logger_manager: LoggerManager = LoggerManager(config, script_name='import_csv_tips')
 logger_manager.configure_application_logger()

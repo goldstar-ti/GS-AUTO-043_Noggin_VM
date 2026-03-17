@@ -4,8 +4,8 @@ from pathlib import Path
 import logging
 
 config: ConfigLoader = ConfigLoader(
-    'config/base_config.ini',
-    'config/load_compliance_check_driver_loader_config.ini'
+    'config/base.ini',
+    'config/LCD.ini'
 )
 
 logger_manager: LoggerManager = LoggerManager(config, script_name='test_hash_manager')

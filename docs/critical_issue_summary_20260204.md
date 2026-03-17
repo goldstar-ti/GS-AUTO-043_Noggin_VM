@@ -21,7 +21,7 @@ The Noggin Data Extraction System exhibits significant security vulnerabilities,
 
 ### 1.1 CRITICAL: Plaintext Credentials in Configuration
 
-**Location:** `base_config.ini` lines 5, 30-33
+**Location:** `base.ini` lines 5, 30-33
 
 ```ini
 password = GoodKingCoat16
@@ -57,7 +57,7 @@ ssh_client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
 
 ### 1.3 HIGH: No Input Validation on CLI Arguments
 
-**Location:** Multiple scripts including `manage_hashes.py`, `validate_noggin_data.py`
+**Location:** Multiple scripts including `manage_hashes.py`, `validate_nobbie_data.py`
 
 ```python
 # manage_hashes.py line 80
@@ -143,8 +143,8 @@ def __init__(self, base_config_path: str, specific_config_path: str) -> None:
 **Location:** 
 - `sftp_download_tips.py` lines 38-69 (`OBJECT_TYPE_SIGNATURES`)
 - `object_types.py` (canonical source)
-- `noggin_processor_unified.py` lines 31-47 (`CONFIG_FILES`, `OBJECT_TYPE_NAMES`)
-- `validate_noggin_data.py` lines 32-39 (`CONFIG_FILES`)
+- `nobbie_process.py` lines 31-47 (`CONFIG_FILES`, `OBJECT_TYPE_NAMES`)
+- `validate_nobbie_data.py` lines 32-39 (`CONFIG_FILES`)
 
 **Impact:** Four separate definitions of object type mappings that can drift out of sync. Adding a new object type requires changes in multiple files.
 
@@ -185,10 +185,10 @@ from common import ConfigLoader, LoggerManager  # Absolute import
 ### 2.4 HIGH: Dead/Redundant Code
 
 **Files:**
-- `noggin_continuous_processor.py` - Active
+- `nobbie_daemon.py` - Active
 - `noggin_continuous_processor_modular.py` - Purpose unclear, likely redundant
 
-**Location:** `noggin_continuous_processor.py` lines 218-222
+**Location:** `nobbie_daemon.py` lines 218-222
 
 ```python
 # def signal_handler(signum: int, frame: Any) -> None:
@@ -200,7 +200,7 @@ from common import ConfigLoader, LoggerManager  # Absolute import
 
 Commented-out code left in production file.
 
-**Location:** `noggin_continuous_processor.py` lines 309-312
+**Location:** `nobbie_daemon.py` lines 309-312
 
 ```python
 # Sleep before next cycle
@@ -221,12 +221,12 @@ This code is unreachable - it's after the `while` loop and after the `return 0` 
 ### 2.5 MEDIUM: Hardcoded Paths Throughout Codebase
 
 **Locations:**
-- `hash_lookup_sync.py` line 76: `etl_dir = Path('/mnt/data/noggin/etl')`
+- `nobbie_sync.py` line 76: `etl_dir = Path('/mnt/data/noggin/etl')`
 - `hash_manager.py` line 119: `Path('/home/noggin_admin/scripts/config/hash_detection.ini')`
 - `archive_monthly_sftp.py` line 350: `default='/mnt/data/noggin/sftp/processed'`
 - `sftp_download_tips.py` line 745: `log_path = Path('/mnt/data/noggin/log')`
 
-**Impact:** Configuration drift. Paths defined in `base_config.ini` are ignored when hardcoded values exist.
+**Impact:** Configuration drift. Paths defined in `base.ini` are ignored when hardcoded values exist.
 
 **Recommendation:**
 - All paths should derive from configuration
@@ -237,7 +237,7 @@ This code is unreachable - it's after the `while` loop and after the `return 0` 
 
 ### 2.6 MEDIUM: Global Mutable State
 
-**Location:** `noggin_continuous_processor.py` lines 24-31
+**Location:** `nobbie_daemon.py` lines 24-31
 
 ```python
 shutdown_requested: bool = False
@@ -521,8 +521,8 @@ if __name__ == "__main__":
 
 ```python
 config: ConfigLoader = ConfigLoader(
-    'config/base_config.ini',
-    'config/load_compliance_check_driver_loader_config.ini'
+    'config/base.ini',
+    'config/LCD.ini'
 )
 ```
 
@@ -645,7 +645,7 @@ Are these nullable because:
 
 ## 6. CONFIGURATION COMPLEXITY
 
-### 6.1 MEDIUM: base_config.ini Overloaded
+### 6.1 MEDIUM: base.ini Overloaded
 
 The base configuration file contains 9 sections mixing concerns:
 
@@ -660,7 +660,7 @@ The base configuration file contains 9 sections mixing concerns:
 | `[circuit_breaker]` | Fault tolerance | `processing.ini` |
 | `[logging]` | Log configuration | `logging.ini` |
 | `[continuous]` | Service scheduling | `service.ini` |
-| `[sftp]` | SFTP connection | `sftp_config.ini` (already exists) |
+| `[sftp]` | SFTP connection | `sftp.ini` (already exists) |
 | `[csv_import]` | Import settings | `processing.ini` |
 | `[report]` | Report formatting | Keep in base |
 | `[web_display]` | Web UI settings | `web.ini` |
@@ -672,10 +672,10 @@ The base configuration file contains 9 sections mixing concerns:
 ### 6.2 LOW: Duplicated SFTP Configuration
 
 SFTP settings appear in both:
-- `base_config.ini` `[sftp]` section
-- `sftp_config.ini` (dedicated file)
+- `base.ini` `[sftp]` section
+- `sftp.ini` (dedicated file)
 
-**Recommendation:** Remove `[sftp]` from `base_config.ini`
+**Recommendation:** Remove `[sftp]` from `base.ini`
 
 ---
 
@@ -696,7 +696,7 @@ The web dashboard (`service_dashboard.py`) has no HTTP endpoint for automated he
 
 ### 7.2 MEDIUM: Subprocess for Processing
 
-**Location:** `noggin_continuous_processor.py` lines 59-65
+**Location:** `nobbie_daemon.py` lines 59-65
 
 ```python
 result = subprocess.run(
@@ -715,7 +715,7 @@ result = subprocess.run(
 
 **Recommendation:**
 - Call processor functions directly instead of subprocess
-- Use `noggin_processor_unified.py` or `ObjectProcessor` class
+- Use `nobbie_process.py` or `ObjectProcessor` class
 
 ---
 
@@ -846,7 +846,7 @@ These items appear to be partially or fully complete but not marked as such.
 
 | File | Lines | Issues Found |
 |------|-------|--------------|
-| `base_config.ini` | 125 | 3 |
+| `base.ini` | 125 | 3 |
 | `config.py` | 310 | 1 |
 | `database.py` | 266 | 2 |
 | `logger.py` | 298 | 1 |
@@ -859,10 +859,10 @@ These items appear to be partially or fully complete but not marked as such.
 | `service_dashboard.py` | 279 | 3 |
 | `manage_hashes.py` | 280 | 1 |
 | `import_csv_tips.py` | 205 | 2 |
-| `hash_lookup_sync.py` | 1086 | 2 |
+| `nobbie_sync.py` | 1086 | 2 |
 | `archive_monthly_sftp.py` | 412 | 1 |
-| `noggin_continuous_processor.py` | 328 | 5 |
-| `validate_noggin_data.py` | 558 | 1 |
+| `nobbie_daemon.py` | 328 | 5 |
+| `validate_nobbie_data.py` | 558 | 1 |
 | `test_database.py` | 56 | 3 |
 | Various config INIs | ~600 | 2 |
 

@@ -44,8 +44,8 @@ class ObjectProcessor:
     
     Usage:
         processor = ObjectProcessor(
-            base_config_path='config/base_config.ini',
-            specific_config_path='config/coupling_compliance_check_config.ini'
+            base_config_path='config/base.ini',
+            specific_config_path='config/CCC.ini'
         )
         processor.run()
     """

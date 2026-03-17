@@ -26,7 +26,7 @@
 <div class="service-tab-content">
     <div class="d-flex justify-content-between align-items-center mb-3 pb-3 border-bottom">
         <div class="d-flex align-items-center gap-3">
-            <h3 class="h5 mb-0">noggin-web</h3>
+            <h3 class="h5 mb-0">nobbie-web</h3>
             {% if web_service.active %}
                 <span class="badge bg-success">Running</span>
             {% else %}
@@ -47,9 +47,9 @@
     
     <div class="commands-card">
         <h5>Management Commands</h5>
-        <code>./manage_web_service.sh status</code>
-        <code>./manage_web_service.sh restart</code>
-        <code>./manage_web_service.sh logs-follow</code>
+        <code>./nobbie-web.sh status</code>
+        <code>./nobbie-web.sh restart</code>
+        <code>./nobbie-web.sh logs-follow</code>
     </div>
 </div>
 {% endif %}
@@ -58,7 +58,7 @@
 <div class="service-tab-content">
     <div class="d-flex justify-content-between align-items-center mb-3 pb-3 border-bottom">
         <div class="d-flex align-items-center gap-3">
-            <h3 class="h5 mb-0">noggin-processor</h3>
+            <h3 class="h5 mb-0">nobbie-daemon</h3>
             {% if processor_service.active %}
                 <span class="badge bg-success">Running</span>
             {% else %}

@@ -41,7 +41,7 @@ Dependencies:
 Usage Example:
     from common import ConfigLoader, DatabaseConnectionManager, LoggerManager
     
-    config = ConfigLoader('config/base_config.ini', 'config/app_config.ini')
+    config = ConfigLoader('config/base.ini', 'config/app_config.ini')
     logger_mgr = LoggerManager(config, script_name='my_script')
     logger_mgr.configure_application_logger()
     

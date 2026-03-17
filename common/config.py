@@ -13,7 +13,7 @@ Key features:
 - Template content extraction for report generation
 
 Usage:
-    config = ConfigLoader('config/base_config.ini', 'config/lcd_config.ini')
+    config = ConfigLoader('config/base.ini', 'config/lcd_config.ini')
     db_config = config.get_postgresql_config()
     field_mappings = config.get_field_mappings()
 """
@@ -293,8 +293,8 @@ if __name__ == "__main__":
     # Test the configuration loader
     try:
         config: ConfigLoader = ConfigLoader(
-            'config/base_config.ini',
-            'config/load_compliance_check_driver_loader_config.ini'
+            'config/base.ini',
+            'config/LCD.ini'
         )
         
         print("PostgreSQL Config:", config.get_postgresql_config())

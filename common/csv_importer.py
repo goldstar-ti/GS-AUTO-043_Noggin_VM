@@ -1021,7 +1021,7 @@ if __name__ == "__main__":
     from common import ConfigLoader, DatabaseConnectionManager, LoggerManager
 
     try:
-        config = ConfigLoader('config/base_config.ini')
+        config = ConfigLoader('config/base.ini')
 
         logger_manager = LoggerManager(config, script_name='csv_importer')
         logger_manager.configure_application_logger()

@@ -76,7 +76,7 @@ chmod +x test_systemd_service.sh
       Tasks: 2
      Memory: 45.2M
      CGroup: /system.slice/noggin-processor.service
-             └─12345 /home/noggin_admin/scripts/.venv/bin/python noggin_continuous_processor.py
+             └─12345 /home/noggin_admin/scripts/.venv/bin/python nobbie_daemon.py
 ```
 
 **Dashboard:**

@@ -2,7 +2,7 @@
 """
 NOBBIE  Continuous Processor
 
-Runs noggin_processor_unified.py in a continuous loop with configurable sleep intervals.
+Runs nobbie_process.py in a continuous loop with configurable sleep intervals.
 Includes CSV import and hash resolution cycles.
 """
 
@@ -40,7 +40,7 @@ def signal_handler(signum: int, frame: Any) -> None:
 
 def run_single_processing_cycle(config: ConfigLoader, db_manager: DatabaseConnectionManager) -> Dict[str, int]:
     """
-    Execute one processing cycle by running noggin_processor_unified.py
+    Execute one processing cycle by running nobbie_process.py
     
     Args:
         config: ConfigLoader instance
@@ -57,7 +57,7 @@ def run_single_processing_cycle(config: ConfigLoader, db_manager: DatabaseConnec
     
     try:
         script_dir = Path(__file__).parent
-        processor_script = script_dir / 'noggin_processor_unified.py'
+        processor_script = script_dir / 'nobbie_process.py'
         
         if not processor_script.exists():
             logger.error(f"Processor script not found: {processor_script}")
@@ -194,7 +194,7 @@ def run_sftp_download_cycle(config, db_manager) -> dict:
     
     try:
         result = run_sftp_download(
-            sftp_config_path='config/sftp_config.ini',
+            sftp_config_path='config/sftp.ini',
             base_config=config,
             db_manager=db_manager
         )
@@ -230,11 +230,11 @@ def main() -> int:
     
     try:
         config = ConfigLoader(
-            'config/base_config.ini',
-            'config/load_compliance_check_driver_loader_config.ini'
+            'config/base.ini',
+            'config/LCD.ini'
         )
         
-        logger_manager = LoggerManager(config, script_name='noggin_continuous_processor')
+        logger_manager = LoggerManager(config, script_name='nobbie_daemon')
         logger_manager.configure_application_logger()
         
         cycle_sleep = config.getint('continuous', 'cycle_sleep_seconds')
