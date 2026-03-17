@@ -1,7 +1,7 @@
 [Unit]
 Description=NOBBIE :: Noggin Object Binary Backup & Ingestion Engine :: gunicorn web application
 After=network.target postgresql.service
-Wants=postgresql.service
+Requires=postgresql.service
 
 [Service]
 Type=simple
@@ -9,6 +9,10 @@ User=noggin_admin
 Group=noggin_admin
 WorkingDirectory=/home/noggin_admin/scripts/web
 Environment="PATH=/home/noggin_admin/scripts/.venv/bin:/usr/local/bin:/usr/bin:/bin"
+# Ensure log directory exists before gunicorn tries to open its log files
+ExecStartPre=/bin/mkdir -p /mnt/data/noggin/log
+# Block until PostgreSQL is ready to accept connections (30s timeout)
+ExecStartPre=/usr/bin/pg_isready -U noggin_app -d noggin_db -t 30
 ExecStart=/home/noggin_admin/scripts/.venv/bin/gunicorn \
     --workers 4 \
     --bind 0.0.0.0:5000 \

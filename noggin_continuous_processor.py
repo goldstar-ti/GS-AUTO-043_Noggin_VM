@@ -17,7 +17,14 @@ from pathlib import Path
 from typing import Dict, Any
 
 from common import ConfigLoader, LoggerManager, DatabaseConnectionManager, CSVImporter, HashManager
-from sys.util_import_tips_sftp import run_sftp_download
+
+# The project's sys/ subdirectory shadows Python's built-in sys module, so import
+# util_import_tips_sftp by temporarily adding that directory to sys.path.
+sys.path.insert(0, str(Path(__file__).parent / 'sys'))
+try:
+    from util_import_tips_sftp import run_sftp_download
+finally:
+    sys.path.pop(0)
 
 # Logger stub: safe to use before main() configures the full application logger
 logger: logging.Logger = logging.getLogger(__name__)

@@ -40,14 +40,27 @@ from email_manager import EmailManager
 from display_config_manager import DisplayConfigManager, format_value
 
 RESULTS_PER_PAGE = 100
-CONFIG_PATH = '../config/base_config.ini'
-WEB_CONFIG_PATH = '../config/web_config.ini'
+_APP_DIR = Path(__file__).parent
+CONFIG_PATH = str(_APP_DIR / '../config/base_config.ini')
+WEB_CONFIG_PATH = '../config/web_config.ini'  # load_web_config() already anchors to __file__
+_CONFIG_DIR = str(_APP_DIR / '../config')
 
-config = ConfigLoader(CONFIG_PATH)
-db_manager = DatabaseConnectionManager(config)
-hash_manager = HashManager(config, db_manager)
-email_mgr = EmailManager()
-display_config_mgr = DisplayConfigManager('../config', config)
+_startup_error: Optional[str] = None
+config = None
+db_manager = None
+hash_manager = None
+email_mgr = None
+display_config_mgr = None
+
+try:
+    config = ConfigLoader(CONFIG_PATH)
+    db_manager = DatabaseConnectionManager(config)
+    hash_manager = HashManager(config, db_manager)
+    email_mgr = EmailManager()
+    display_config_mgr = DisplayConfigManager(_CONFIG_DIR, config)
+except Exception as _e:
+    _startup_error = str(_e)
+    logging.getLogger(__name__).critical(f"Startup initialization failed: {_e}", exc_info=True)
 
 logger: logging.Logger = logging.getLogger(__name__)
 
@@ -63,11 +76,11 @@ def load_web_config() -> configparser.ConfigParser:
 
 web_config = load_web_config()
 
-HIDE_EMPTY_FIELDS = config.getboolean('web_display', 'hide_empty_fields', fallback=True)
-THUMBNAIL_WIDTH = config.getint('web_display', 'thumbnail_width', fallback=120)
-THUMBNAIL_HEIGHT = config.getint('web_display', 'thumbnail_height', fallback=90)
-DATE_FORMAT = config.get('web_display', 'date_format', fallback='%d %b %Y')
-DATETIME_FORMAT = config.get('web_display', 'datetime_format', fallback='%d %b %Y %H:%M')
+HIDE_EMPTY_FIELDS = config.getboolean('web_display', 'hide_empty_fields', fallback=True) if config else True
+THUMBNAIL_WIDTH = config.getint('web_display', 'thumbnail_width', fallback=120) if config else 120
+THUMBNAIL_HEIGHT = config.getint('web_display', 'thumbnail_height', fallback=90) if config else 90
+DATE_FORMAT = config.get('web_display', 'date_format', fallback='%d %b %Y') if config else '%d %b %Y'
+DATETIME_FORMAT = config.get('web_display', 'datetime_format', fallback='%d %b %Y %H:%M') if config else '%d %b %Y %H:%M'
 
 app = Flask(__name__)
 app.secret_key = web_config.get('security', 'secret_key',
@@ -78,6 +91,13 @@ users = {}
 if web_config.has_section('users'):
     for _username in web_config.options('users'):
         users[_username] = generate_password_hash(web_config.get('users', _username))
+
+
+@app.before_request
+def _check_startup():
+    """Return 503 on every request if startup initialisation failed (DB down, volume not mounted, etc.)."""
+    if _startup_error is not None:
+        return jsonify({'error': 'Service unavailable', 'detail': _startup_error}), 503
 
 
 def get_object_type_display(object_type: str) -> Tuple[str, str]:
